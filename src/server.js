@@ -1,33 +1,20 @@
 import { createServer } from "node:http";
-import { captureAndAsk } from "./index.js";
 import { MODEL } from "./config.js";
 
 /**
- * Create a Solver HTTP server. The server exposes:
+ * Create a small HTTP server exposing:
  *   GET  /health  → { ok, busy, model, mode }
- *   POST /ask     → triggers a capture+ask, calls hooks, returns { ok, durationMs, answerChars }
+ *   POST /ask     → invokes onAsk(log), returns its result as JSON
  *
- * Hooks (all optional):
- *   onPending(log)            — called as soon as a request is accepted
- *   onAnswer({ text, meta }, log) — called with the Claude response (sync or async)
- *   onError(err, log)         — called on failure
+ * The caller owns capture + AI + UI logic via onAsk. The server only handles
+ * concurrency (single-flight), CORS, and JSON envelope.
  *
  * @param {object} opts
- * @param {string} opts.imagePath  — temp file path for the screenshot
  * @param {import("pino").Logger} opts.logger
- * @param {string} [opts.mode]     — label exposed in /health
- * @param {(log)=>void} [opts.onPending]
- * @param {(result, log)=>void|Promise<void>} [opts.onAnswer]
- * @param {(err, log)=>void} [opts.onError]
+ * @param {string} [opts.mode]
+ * @param {(log)=>Promise<object>} opts.onAsk  must return { ok, durationMs?, answerChars? }
  */
-export function createSolverServer({
-  imagePath,
-  logger,
-  mode = "serve",
-  onPending,
-  onAnswer,
-  onError,
-}) {
+export function createSolverServer({ logger, mode = "serve", onAsk }) {
   let busy = false;
   let reqCounter = 0;
 
@@ -60,28 +47,17 @@ export function createSolverServer({
       }
 
       busy = true;
-      const start = performance.now();
       log.info("request received");
 
       try {
-        onPending?.(log);
-        const { text, meta } = await captureAndAsk(imagePath, log);
-        await onAnswer?.({ text, meta }, log);
-
-        const durationMs = Math.round(performance.now() - start);
-        log.info(
-          { durationMs, answerChars: text.length },
-          "request completed",
-        );
+        const result = await onAsk(log);
+        log.info(result, "request completed");
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(
-          JSON.stringify({ ok: true, durationMs, answerChars: text.length }),
-        );
+        res.end(JSON.stringify(result));
       } catch (err) {
         const msg =
           err?.stderr?.toString?.().trim() || err?.message || String(err);
         log.error({ err: msg }, "request failed");
-        onError?.(err, log);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: msg }));
       } finally {

@@ -1,12 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { readFileSync } from "node:fs";
 import { MAX_TOKENS, MODEL } from "./config.js";
 import { SYSTEM_PROMPT } from "./prompt.js";
 
-export async function askClaude(imagePath, log) {
+/**
+ * Send a PNG buffer + system prompt to Claude and return the answer text + usage meta.
+ *
+ * @param {Buffer} pngBuffer  Raw PNG bytes of the captured window.
+ * @param {import("pino").Logger} [log]
+ * @returns {Promise<{text: string, meta: object}>}
+ */
+export async function askClaude(pngBuffer, log) {
   const start = performance.now();
   const client = new Anthropic();
-  const data = readFileSync(imagePath).toString("base64");
+  const data = pngBuffer.toString("base64");
 
   const response = await client.messages.create({
     model: MODEL,
@@ -26,8 +32,8 @@ export async function askClaude(imagePath, log) {
   });
 
   const text = response.content
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
     .join("\n");
 
   const meta = {

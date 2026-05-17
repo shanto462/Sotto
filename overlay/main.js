@@ -6,18 +6,18 @@ import {
   screen,
   shell,
 } from "electron";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import hljs from "highlight.js";
 import { marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 import {
+  askClaude,
+  captureChromeWindowByTitle,
   DEFAULT_PORT,
-  getChromeWindowBounds,
   logger,
-  MODEL,
+  queryActiveChromeWindow,
 } from "../src/index.js";
 import { createSolverServer } from "../src/server.js";
 
@@ -49,9 +49,7 @@ marked.use(
 // ── State ─────────────────────────────────────────────────────────────────────
 let mainWindow = null;
 let server = null;
-let tempDir = null;
-let imagePath = null;
-let lastChromeBounds = null;
+const isMac = process.platform === "darwin";
 
 const OVERLAY_WIDTH = 540;
 const OVERLAY_MARGIN = 14;
@@ -84,9 +82,17 @@ function createOverlayWindow() {
   });
 
   // ★ Hide from screen capture / screen-share APIs.
+  //   macOS: NSWindowSharingNone.  Windows: WDA_EXCLUDEFROMCAPTURE (Win10 2004+).
   mainWindow.setContentProtection(true);
-  mainWindow.setAlwaysOnTop(true, "screen-saver");
-  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  // Stay above full-screen apps. "screen-saver" is a macOS window level; on
+  // Windows the boolean alwaysOnTop is the effective control, the string is ignored.
+  mainWindow.setAlwaysOnTop(true, isMac ? "screen-saver" : undefined);
+  if (isMac) {
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
+
+  // Click-through by default; renderer toggles this off on hover to enable scroll.
   mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   mainWindow.loadFile(join(__dirname, "index.html"));
@@ -97,7 +103,7 @@ function createOverlayWindow() {
   });
 
   logger.info(
-    { contentProtection: true, clickThrough: true },
+    { contentProtection: true, clickThrough: true, platform: process.platform },
     "overlay window created",
   );
 }
@@ -117,9 +123,8 @@ function positionOverChrome(bounds) {
 
 function showOverlay() {
   if (!mainWindow) return;
-  if (lastChromeBounds) positionOverChrome(lastChromeBounds);
   if (!mainWindow.isVisible()) mainWindow.showInactive();
-  mainWindow.setAlwaysOnTop(true, "screen-saver");
+  mainWindow.setAlwaysOnTop(true, isMac ? "screen-saver" : undefined);
 }
 
 function toggleOverlay() {
@@ -138,6 +143,39 @@ ipcMain.on("set-ignore-mouse-events", (_e, ignore, options) => {
   mainWindow?.setIgnoreMouseEvents(!!ignore, options ?? undefined);
 });
 
+// ── Single-trigger orchestrator (passed to the HTTP server) ───────────────────
+async function handleAsk(log) {
+  const start = performance.now();
+  try {
+    // 1. Figure out which Chrome window we want (title + optional bounds).
+    const { title, bounds } = queryActiveChromeWindow(log);
+
+    // 2. Position overlay over Chrome (macOS only; bounds is null on Windows for now).
+    if (bounds) positionOverChrome(bounds);
+    showOverlay();
+    mainWindow?.webContents.send("status", { state: "pending" });
+
+    // 3. Capture and ask.
+    const { png } = await captureChromeWindowByTitle(title, log);
+    const { text, meta } = await askClaude(png, log);
+
+    // 4. Render in the overlay.
+    const html = await marked.parse(text);
+    mainWindow?.webContents.send("answer", { html, text, meta });
+
+    return {
+      ok: true,
+      durationMs: Math.round(performance.now() - start),
+      answerChars: text.length,
+    };
+  } catch (err) {
+    const msg = err?.stderr?.toString?.().trim() || err?.message || String(err);
+    showOverlay();
+    mainWindow?.webContents.send("status", { state: "error", error: msg });
+    throw err;
+  }
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   if (
@@ -148,9 +186,6 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
-
-  tempDir = mkdtempSync(join(tmpdir(), "sotto-overlay-"));
-  imagePath = join(tempDir, "chrome.png");
 
   createOverlayWindow();
 
@@ -166,27 +201,9 @@ app.whenReady().then(async () => {
   }
 
   server = createSolverServer({
-    imagePath,
     logger,
     mode: "overlay",
-    onPending: () => {
-      try {
-        lastChromeBounds = getChromeWindowBounds(logger);
-      } catch {
-        /* will surface in captureAndAsk */
-      }
-      showOverlay();
-      mainWindow?.webContents.send("status", { state: "pending" });
-    },
-    onAnswer: async ({ text, meta }) => {
-      const html = await marked.parse(text);
-      mainWindow?.webContents.send("answer", { html, text, meta });
-    },
-    onError: (err) => {
-      const msg = err?.stderr?.toString?.().trim() || err?.message || String(err);
-      showOverlay();
-      mainWindow?.webContents.send("status", { state: "error", error: msg });
-    },
+    onAsk: handleAsk,
   });
 
   try {
@@ -200,7 +217,6 @@ app.whenReady().then(async () => {
 app.on("before-quit", () => {
   globalShortcut.unregisterAll();
   server?.close();
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true });
 });
 
 app.on("window-all-closed", () => {

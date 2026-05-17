@@ -1,54 +1,65 @@
-import { execFileSync } from "node:child_process";
-import { statSync } from "node:fs";
+// Cross-platform Chrome window capture using Electron's desktopCapturer.
+//
+// On modern macOS / Windows, desktopCapturer uses the OS's GPU-accelerated window
+// capture (NSWindow snapshots / Windows.Graphics.Capture). Our own overlay window
+// has setContentProtection(true), so it is automatically excluded from the result.
 
-const BOUNDS_SCRIPT = `
-tell application "Google Chrome"
-  if not running then error "Google Chrome is not running"
-  if (count of windows) = 0 then error "Google Chrome has no open windows"
-  activate
-  delay 0.25
-  set b to bounds of front window
-end tell
-return (item 1 of b as text) & "," & ¬
-       (item 2 of b as text) & "," & ¬
-       (item 3 of b as text) & "," & ¬
-       (item 4 of b as text)
-`.trim();
+import { desktopCapturer, screen } from "electron";
 
-export function getChromeWindowBounds(log) {
+const CHROME_NAME_RE = /google chrome|chromium/i;
+
+/**
+ * Capture the Chrome window matching `preferredTitle`, or fall back to any
+ * Chrome window if the title doesn't match (e.g. focus moved mid-capture).
+ *
+ * @param {string} preferredTitle  Exact name to prefer (from queryActiveChromeWindow).
+ * @param {import("pino").Logger} [log]
+ * @returns {Promise<{png: Buffer, name: string, size: {width: number, height: number}}>}
+ */
+export async function captureChromeWindowByTitle(preferredTitle, log) {
   const start = performance.now();
-  const raw = execFileSync("osascript", ["-e", BOUNDS_SCRIPT], {
-    encoding: "utf8",
-  }).trim();
-  const parts = raw.split(",").map((s) => Number(s.trim()));
-  if (parts.length !== 4 || parts.some(Number.isNaN)) {
-    throw new Error(`Unexpected Chrome window bounds output: "${raw}"`);
-  }
-  const [x1, y1, x2, y2] = parts;
-  const bounds = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
-  log?.debug(
-    { bounds, durationMs: Math.round(performance.now() - start) },
-    "located Chrome window",
+
+  // Pick the largest screen-sized thumbnail across all displays so we don't
+  // accidentally downscale a window on a 4K monitor.
+  const displays = screen.getAllDisplays();
+  const thumbnailSize = displays.reduce(
+    (acc, d) => ({
+      width: Math.max(acc.width, Math.round(d.bounds.width * d.scaleFactor)),
+      height: Math.max(acc.height, Math.round(d.bounds.height * d.scaleFactor)),
+    }),
+    { width: 1920, height: 1080 },
   );
-  return bounds;
-}
 
-export function captureRegion({ x, y, width, height }, outPath, log) {
-  const start = performance.now();
-  execFileSync("screencapture", [
-    "-x",
-    "-o",
-    "-R",
-    `${x},${y},${width},${height}`,
-    outPath,
-  ]);
-  const { size } = statSync(outPath);
-  log?.debug(
+  const sources = await desktopCapturer.getSources({
+    types: ["window"],
+    thumbnailSize,
+    fetchWindowIcons: false,
+  });
+
+  const source =
+    (preferredTitle && sources.find((s) => s.name === preferredTitle)) ||
+    sources.find((s) => CHROME_NAME_RE.test(s.name));
+
+  if (!source) {
+    throw new Error(
+      "No Google Chrome window was found. Is Chrome running with at least one open window?",
+    );
+  }
+
+  const png = source.thumbnail.toPNG();
+  const size = source.thumbnail.getSize();
+
+  log?.info(
     {
-      outPath,
-      bytes: size,
+      windowName: source.name,
+      matched: preferredTitle ? source.name === preferredTitle : "fallback",
+      bytes: png.length,
+      width: size.width,
+      height: size.height,
       durationMs: Math.round(performance.now() - start),
     },
-    "captured screenshot",
+    "captured Chrome window",
   );
+
+  return { png, name: source.name, size };
 }
