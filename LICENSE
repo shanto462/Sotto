@@ -1,0 +1,82 @@
+PERSONAL & EDUCATIONAL USE LICENSE
+(Based on the MIT License, with acceptable-use restrictions.
+ NOT an OSI-approved open-source license.)
+
+Copyright (c) 2026 Shanto <shalah@ecognitionlabs.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions.
+
+────────────────────────────────────────────────────────────────────────────
+1. ACCEPTABLE USE
+
+The Software MUST NOT be used to:
+
+  (a) Obtain an undisclosed advantage in any examination, certification,
+      interview, take-home assignment, live coding test, technical
+      assessment, academic submission, or other evaluative process where
+      use of AI assistance is not openly disclosed to, and explicitly
+      permitted by, all relevant evaluators or counterparties.
+
+  (b) Deceive any employer, recruiter, educator, examiner, client,
+      audience, or counterparty about the source, authorship, or
+      provenance of one's work, knowledge, capabilities, or
+      qualifications.
+
+  (c) Circumvent, defeat, or evade monitoring, proctoring, screen-sharing,
+      or integrity-enforcement tools used by an institution, employer,
+      platform, or examiner — including, but not limited to, the use of
+      this Software's screen-capture-invisible overlay feature during
+      sessions where its presence has not been disclosed.
+
+  (d) Violate any applicable academic-integrity policy, employment
+      agreement, code of conduct, or terms of service of any platform on
+      which the Software is operated or with which it interacts.
+
+  (e) Engage in activity prohibited by Anthropic's Usage Policies
+      (https://www.anthropic.com/legal/aup), the terms of any LLM
+      provider invoked by the Software, or any applicable law.
+
+────────────────────────────────────────────────────────────────────────────
+2. PERMITTED USE (non-exhaustive)
+
+Permitted uses include, but are not limited to:
+
+  • Personal productivity and learning on one's own machine.
+  • Speaker notes / teleprompter use during livestreams or recordings
+    that one personally controls.
+  • Research, debugging, and reading assistance for one's own materials.
+  • Accessibility aids.
+  • Any other use that respects Section 1.
+
+────────────────────────────────────────────────────────────────────────────
+3. ATTRIBUTION
+
+The above copyright notice, this license, and the Acceptable Use section
+shall be included in all copies or substantial portions of the Software.
+
+────────────────────────────────────────────────────────────────────────────
+4. TERMINATION
+
+The rights granted by this License terminate automatically and immediately
+upon any violation of Section 1. Continued use of the Software after such
+violation constitutes copyright infringement and is subject to all
+remedies available under applicable law.
+
+────────────────────────────────────────────────────────────────────────────
+5. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+THE AUTHOR DOES NOT CONDONE OR ACCEPT RESPONSIBILITY FOR ANY USE OF THE
+SOFTWARE THAT VIOLATES SECTION 1.

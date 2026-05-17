@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Triple-Click Solver",
+  "version": "0.2.0",
+  "description": "Press Ctrl+M (rebindable) to ask the local Claude daemon about the current Chrome window.",
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "commands": {
+    "trigger-solver": {
+      "suggested_key": {
+        "default": "Ctrl+M",
+        "mac": "MacCtrl+M"
+      },
+      "description": "Ask Claude about the current page"
+    }
+  },
+  "action": {
+    "default_title": "Press Ctrl+M to ask Claude"
+  }
+}
