@@ -105,10 +105,27 @@ function ensureOverlay() {
     preloadPath: join(__dirname, "preload", "overlay.cjs"),
     indexPath: join(__dirname, "ui", "overlay", "index.html"),
     isMac,
+    savedBounds: loadSettings().overlay,
   });
   overlayWin.on("closed", () => {
     overlayWin = null;
   });
+
+  // Persist user-driven move/resize. Debounced so we don't write on every
+  // pixel during a drag.
+  let saveTimer = null;
+  const queueSave = () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (!overlayWin || overlayWin.isDestroyed()) return;
+      const [x, y] = overlayWin.getPosition();
+      const [width, height] = overlayWin.getSize();
+      saveSettings({ overlay: { x, y, width, height } });
+    }, 400);
+  };
+  overlayWin.on("move", queueSave);
+  overlayWin.on("resize", queueSave);
+
   return overlayWin;
 }
 
@@ -123,23 +140,53 @@ function openOnboarding() {
     indexPath: join(__dirname, "ui", "onboarding", "index.html"),
     iconPath: join(ASSETS, "icon-app.png"),
   });
+  onboardingWin.on("show", updateDockVisibility);
+  onboardingWin.on("hide", updateDockVisibility);
   onboardingWin.on("closed", async () => {
     onboardingWin = null;
+    updateDockVisibility();
     // If user closed without finishing, start the runtime anyway so the app
     // remains usable from the tray (they can re-run setup from Preferences).
     if (!loadSettings().onboardingComplete && !server) {
       await startRuntime();
     }
   });
+  setImmediate(updateDockVisibility);
 }
 
 function openSettings(initialTab) {
-  openSettingsWindow({
+  const win = openSettingsWindow({
     preloadPath: join(__dirname, "preload", "settings.cjs"),
     indexPath: join(__dirname, "ui", "settings", "index.html"),
     iconPath: join(ASSETS, "icon-app.png"),
     initialTab,
   });
+  if (win && !win.__sottoDockHooked) {
+    win.__sottoDockHooked = true;
+    win.on("show", updateDockVisibility);
+    win.on("hide", updateDockVisibility);
+    win.on("closed", updateDockVisibility);
+  }
+  setImmediate(updateDockVisibility);
+}
+
+// Dock visibility: show the dock icon whenever any real UI window is open
+// (onboarding or settings). Hide when only the overlay is around — the
+// overlay is intentionally invisible to the dock.
+function updateDockVisibility() {
+  if (!isMac || !app.dock) return;
+  const visible = [
+    onboardingWin && !onboardingWin.isDestroyed() && onboardingWin.isVisible(),
+    (() => {
+      const s = getSettingsWindow();
+      return s && !s.isDestroyed() && s.isVisible();
+    })(),
+  ].some(Boolean);
+  if (visible) {
+    app.dock.show().catch(() => {});
+  } else {
+    app.dock.hide();
+  }
 }
 
 // ── Capture + ask orchestration ──────────────────────────────────────────────
@@ -157,8 +204,9 @@ async function handleAsk(log) {
   setTrayState("busy");
   try {
     const { title, bounds } = queryActiveChromeWindow(log);
-    if (bounds && loadSettings().positionOverChrome && isMac) {
-      positionOverChrome(ensureOverlay(), bounds);
+    const settings = loadSettings();
+    if (bounds && settings.positionOverChrome && isMac) {
+      positionOverChrome(ensureOverlay(), bounds, settings.overlay);
     }
     showOverlay(ensureOverlay(), isMac);
     overlayWin?.webContents.send("status", { state: "pending" });
@@ -634,7 +682,16 @@ async function startRuntime() {
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Start hidden from dock; updateDockVisibility() will show it whenever
+  // a real UI window (onboarding or settings) is visible.
   if (isMac) app.dock?.hide();
+
+  // macOS: clicking the (now visible) dock icon should bring up settings
+  // (or onboarding if it hasn't been completed yet).
+  app.on("activate", () => {
+    if (!loadSettings().onboardingComplete) openOnboarding();
+    else openSettings();
+  });
 
   hydrateProcessEnv();
   const settings = loadSettings();
@@ -673,12 +730,19 @@ app.whenReady().then(async () => {
 });
 
 app.on("second-instance", () => {
-  if (onboardingWin) {
+  // Someone tried to `open Sotto.app` while we were already running. Surface
+  // it visibly so they don't think the launch silently failed.
+  logger.info("second-instance attempted; bringing existing instance forward");
+  if (onboardingWin && !onboardingWin.isDestroyed()) {
     onboardingWin.show();
     onboardingWin.focus();
   } else {
     showOverlay(ensureOverlay(), isMac);
   }
+  notify(
+    "Sotto is already running",
+    "Look for the S icon in your menu bar — or use the tray to quit.",
+  );
 });
 
 app.on("before-quit", () => {

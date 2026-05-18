@@ -27,6 +27,15 @@ const DEFAULTS = {
     clear: "Control+L",
   },
   activePromptId: "recap",
+  overlay: {
+    // null means "use default placement (top-right of primary display, or over
+    // Chrome if positionOverChrome is true)". After the user drags/resizes,
+    // these are populated and restored on launch.
+    x: null,
+    y: null,
+    width: 540,
+    height: 600,
+  },
   onboardingComplete: false,
 };
 

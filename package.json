@@ -20,7 +20,9 @@
     "run:win": "start \"\" dist/win-unpacked/Sotto.exe",
 
     "dev:mac": "npm run build:mac && npm run run:mac",
-    "dev:win": "npm run build:win && npm run run:win"
+    "dev:win": "npm run build:win && npm run run:win",
+
+    "reset": "bash scripts/reset.sh"
   },
   "engines": {
     "node": ">=20"
