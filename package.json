@@ -10,9 +10,17 @@
   "scripts": {
     "start": "electron desktop/main.js",
     "icons": "node assets/generate-icons.js",
-    "package": "electron-builder --mac dir",
-    "package:dmg": "electron-builder --mac dmg",
-    "package:win": "electron-builder --win portable"
+
+    "build:mac": "electron-builder --mac dir",
+    "build:win": "electron-builder --win dir",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:exe": "electron-builder --win portable",
+
+    "run:mac": "open dist/mac-arm64/Sotto.app || open dist/mac/Sotto.app",
+    "run:win": "start \"\" dist/win-unpacked/Sotto.exe",
+
+    "dev:mac": "npm run build:mac && npm run run:mac",
+    "dev:win": "npm run build:win && npm run run:win"
   },
   "engines": {
     "node": ">=20"
@@ -56,6 +64,10 @@
       "target": "dir",
       "icon": "assets/icon-app.png",
       "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
       "extendInfo": {
         "LSUIElement": true,
         "NSScreenCaptureUsageDescription": "Sotto captures the active Chrome window so Claude can answer questions about it.",
