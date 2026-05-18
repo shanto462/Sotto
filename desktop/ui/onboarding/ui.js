@@ -120,6 +120,16 @@ async function refreshPermissions() {
   } catch {
     /* ignore */
   }
+  // Dev-mode banner: visible only when running unpackaged (Electron from CLI),
+  // because permissions get attributed to the parent terminal app rather than
+  // to "Sotto" itself.
+  try {
+    const info = await window.api.getAppInfo();
+    const banner = $("#dev-mode-banner");
+    if (banner) banner.hidden = !!info?.isPackaged;
+  } catch {
+    /* ignore */
+  }
 }
 
 function setPerm(name, status) {

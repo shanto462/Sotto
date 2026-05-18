@@ -11,6 +11,35 @@ const err = (...args) => console.error(LOG_PREFIX, ...args);
 
 log("service worker started");
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * fetch() with retry on network errors and 5xx responses. 4xx is treated as
+ * a definitive answer (not retried). Backoff is linear * attempt index.
+ *
+ * Chrome MV3 service workers can be terminated when idle; for short retry
+ * waits (<= ~5s total) setTimeout is fine since the SW stays alive while
+ * an in-flight async chain is pending.
+ */
+async function fetchWithRetry(url, options = {}, { attempts = 2, delayMs = 600 } = {}) {
+  let lastError = null;
+  for (let i = 0; i <= attempts; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status >= 500 && i < attempts) {
+        lastError = new Error(`HTTP ${res.status}`);
+        await sleep(delayMs * (i + 1));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastError = e;
+      if (i < attempts) await sleep(delayMs * (i + 1));
+    }
+  }
+  throw lastError ?? new Error("fetch failed");
+}
+
 // ── Heartbeat ───────────────────────────────────────────────────────────────
 let lastHeartbeatAt = 0;
 const HEARTBEAT_DEDUPE_MS = 4_000;
@@ -20,16 +49,16 @@ async function sendHeartbeat(reason = "") {
   if (now - lastHeartbeatAt < HEARTBEAT_DEDUPE_MS) return;
   lastHeartbeatAt = now;
   try {
-    const r = await fetch(HEARTBEAT, { method: "POST" });
+    const r = await fetchWithRetry(HEARTBEAT, { method: "POST" }, { attempts: 1, delayMs: 400 });
     if (!r.ok) warn(`heartbeat non-2xx: ${r.status} (${reason})`);
   } catch {
-    // Sotto app not running — silent.
+    // Sotto not running or unreachable — silent (alarms and tab events will retry).
   }
 }
 
 async function pingHealth() {
   try {
-    const r = await fetch(HEALTH);
+    const r = await fetchWithRetry(HEALTH, {}, { attempts: 2, delayMs: 700 });
     const body = await r.text();
     log(`health · status=${r.status} · ${body}`);
   } catch (e) {
@@ -113,7 +142,14 @@ async function runTrigger(source) {
   const startedAt = Date.now();
 
   try {
-    const r = await fetch(ASK, { method: "POST" });
+    // Up to 2 attempts with longer backoff — covers the case where Sotto
+    // is mid-restart or the SW just woke from a pause and the first fetch
+    // races with a transient localhost connection refusal.
+    const r = await fetchWithRetry(
+      ASK,
+      { method: "POST" },
+      { attempts: 1, delayMs: 1200 },
+    );
     const text = await r.text();
     const elapsed = Date.now() - startedAt;
     log(`fetch · status=${r.status} · elapsed=${elapsed}ms`);
@@ -137,7 +173,7 @@ async function runTrigger(source) {
       : "";
     await showToastOnActiveTab(`Answer in overlay${ms}`, "ok");
   } catch (e) {
-    err(`fetch failed: ${e?.message ?? e}`);
+    err(`fetch failed after retry: ${e?.message ?? e}`);
     await showToastOnActiveTab(
       "Sotto app not reachable — is it running?",
       "error",

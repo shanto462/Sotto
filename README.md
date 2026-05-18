@@ -50,12 +50,38 @@ Linux is not supported.
 git clone https://github.com/shanto462/Sotto.git
 cd Sotto
 npm install
-npm start
+```
+
+**Recommended: build a real app bundle once, then launch that.**
+
+```bash
+npm run package          # produces dist/mac-arm64/Sotto.app (~286 MB)
+open dist/mac-arm64/Sotto.app
+```
+
+Running the packaged `.app` matters because macOS attributes permission
+requests to the process that owns them. If you `npm start` from a terminal
+(dev mode), the OS asks **the terminal** (Terminal, iTerm, Ghostty…) for
+Screen Recording / Microphone / Accessibility — not Sotto. With the packaged
+app, prompts correctly read "Sotto would like to record this computer's
+screen" and grants persist under `com.shanto.sotto`.
+
+For day-to-day development:
+
+```bash
+npm start                # quick iteration; permissions get scoped to the parent terminal
 ```
 
 The onboarding wizard opens automatically on first launch — license
 acceptance → API keys → permissions → Chrome extension. Everything is
 configured from the GUI. No `.env` editing required.
+
+### Other build targets
+
+```bash
+npm run package:dmg      # mac: full .dmg installer (signed only ad-hoc — Gatekeeper will warn)
+npm run package:win      # windows: portable .exe (run on a Windows host)
+```
 
 ### Grant OS permissions (one-time)
 
@@ -243,6 +269,7 @@ curl -X POST http://127.0.0.1:8765/heartbeat
 | `@anthropic-ai/sdk` | Claude vision + text API |
 | `openai` | Whisper transcription |
 | `electron` (dev) | Desktop runtime |
+| `electron-builder` (dev) | Packaging into `Sotto.app` / `.exe` |
 | `marked` + `marked-highlight` + `highlight.js` | Markdown rendering |
 | `pino` + `pino-pretty` | Structured logging |
 | `sharp` (dev) | One-shot icon generation |

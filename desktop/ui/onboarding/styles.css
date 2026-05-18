@@ -232,6 +232,35 @@ body {
 }
 .restart-banner > span { flex: 1; }
 
+.dev-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius-md);
+}
+.dev-banner > span:first-child {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-warning);
+}
+.dev-banner .row-label { color: var(--color-text); font-weight: 500; }
+.dev-banner .row-hint {
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  margin-top: 4px;
+}
+.dev-banner code {
+  background: var(--color-pill-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
 /* Extension step */
 .ext-status {
   display: flex;

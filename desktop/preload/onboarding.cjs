@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("api", {
   openSystemSettings: (pane) =>
     ipcRenderer.send("permission:open-system-settings", pane),
   restartApp: () => ipcRenderer.send("app:restart"),
+  getAppInfo: () => ipcRenderer.invoke("app:info"),
   getExtensionInfo: () => ipcRenderer.invoke("extension:info"),
   isExtensionConnected: () => ipcRenderer.invoke("extension:is-connected"),
   openExtensionFolder: () => ipcRenderer.send("extension:open-folder"),

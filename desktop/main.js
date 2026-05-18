@@ -512,6 +512,7 @@ function registerIPC() {
     node: process.versions.node,
     platform: `${process.platform} (${process.arch})`,
     userData: app.getPath("userData"),
+    isPackaged: app.isPackaged,
   }));
 
   // Overlay click-through toggle

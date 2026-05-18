@@ -84,6 +84,18 @@
           <p class="dim">Required by macOS / Windows for capture, voice, and shortcuts.</p>
         </div>
 
+        <div id="dev-mode-banner" class="dev-banner" hidden>
+          <span>⚠</span>
+          <div>
+            <div class="row-label">Running unpackaged — permissions will be granted to your terminal app</div>
+            <div class="row-hint">
+              macOS attributes permission prompts to the process that launched Electron
+              (e.g. Terminal, iTerm, Ghostty). For permissions to scope to "Sotto" specifically,
+              run <code>npm run package</code> once and launch <code>dist/mac/Sotto.app</code>.
+            </div>
+          </div>
+        </div>
+
         <ul class="perm-list" id="permissions">
           <li class="perm-item" data-perm="screen" data-kind="screen">
             <div class="perm-icon">●</div>
