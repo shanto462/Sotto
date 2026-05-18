@@ -4,7 +4,7 @@
   "private": true,
   "description": "Tray-resident desktop companion that captures the active Chrome window on a keystroke and shows Claude's answer in a screen-share-invisible overlay.",
   "license": "SEE LICENSE IN LICENSE",
-  "author": "Shanto <shalah@ecognitionlabs.com>",
+  "author": "Shanto <shalahuddinshanto@gmail.com>",
   "type": "module",
   "main": "desktop/main.js",
   "scripts": {
