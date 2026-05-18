@@ -4,48 +4,34 @@
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
-    <title>Solver</title>
-    <link rel="stylesheet" href="../node_modules/highlight.js/styles/github-dark.css" />
+    <title>Sotto</title>
+    <link rel="stylesheet" href="../shared/tokens.css" />
+    <link rel="stylesheet" href="../../../node_modules/highlight.js/styles/github-dark.css" />
     <style>
-      :root {
-        --bg: rgba(20, 22, 28, 0.88);
-        --border: rgba(255, 255, 255, 0.07);
-        --text: #e7e9ee;
-        --muted: #8b8f99;
-        --accent: #7aa2ff;
-        --code-bg: rgba(255, 255, 255, 0.04);
-        --code-border: rgba(255, 255, 255, 0.06);
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { height: 100%; }
-      body {
-        font: 14px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text",
-              "Segoe UI", system-ui, sans-serif;
-        color: var(--text);
-        background: transparent;
-        -webkit-font-smoothing: antialiased;
-        overflow: hidden;
-      }
+      html, body { height: 100%; overflow: hidden; background: transparent; }
+      body { user-select: none; }
+
       #frame {
         height: 100%;
-        background: var(--bg);
+        background: var(--color-bg-glass);
         backdrop-filter: blur(22px) saturate(160%);
         -webkit-backdrop-filter: blur(22px) saturate(160%);
-        border: 1px solid var(--border);
-        border-radius: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
         display: flex;
         flex-direction: column;
         overflow: hidden;
       }
+
       #strip {
         padding: 8px 14px;
         display: flex;
         align-items: center;
         gap: 8px;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--color-border);
         flex-shrink: 0;
-        font-size: 11px;
-        color: var(--muted);
+        font-size: var(--text-xs);
+        color: var(--color-muted);
         letter-spacing: 0.06em;
         text-transform: uppercase;
         font-weight: 600;
@@ -54,7 +40,7 @@
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background: var(--accent);
+        background: var(--color-accent);
         box-shadow: 0 0 8px rgba(122, 162, 255, 0.6);
       }
       #strip .hint {
@@ -65,51 +51,37 @@
         font-size: 10.5px;
         opacity: 0.65;
       }
+
       #content {
         flex: 1;
         overflow-y: auto;
         padding: 14px 18px 12px;
         scroll-behavior: smooth;
-        /* user-select disabled because clicks pass through, no good UX for selection */
-        user-select: none;
       }
       #content::-webkit-scrollbar { width: 6px; }
-      #content::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 3px;
-      }
-      #content::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.2);
-      }
+
       #footer {
         flex-shrink: 0;
         padding: 7px 14px 8px;
         font-size: 10.5px;
-        color: var(--muted);
-        border-top: 1px solid var(--border);
+        color: var(--color-muted);
+        border-top: 1px solid var(--color-border);
         font-feature-settings: "tnum";
       }
+
       #empty {
-        color: var(--muted);
-        font-size: 13px;
+        color: var(--color-muted);
+        font-size: var(--text-md);
         text-align: center;
         padding: 36px 20px;
         line-height: 1.6;
       }
-      #empty kbd {
-        display: inline-block;
-        padding: 1px 6px;
-        font: 11px/1 "SF Mono", Menlo, Consolas, monospace;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        color: var(--text);
-      }
+
       .status {
         display: flex;
         align-items: center;
         gap: 10px;
-        color: var(--muted);
+        color: var(--color-muted);
         padding: 8px 0;
       }
       .status-error { color: #ff9090; }
@@ -117,48 +89,43 @@
         width: 12px;
         height: 12px;
         border: 2px solid rgba(122, 162, 255, 0.3);
-        border-top-color: var(--accent);
+        border-top-color: var(--color-accent);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
 
       /* Markdown */
-      .md h1, .md h2, .md h3, .md h4 {
-        font-weight: 600;
-        margin: 18px 0 8px;
-        line-height: 1.3;
-      }
+      .md { overflow-wrap: anywhere; word-break: break-word; }
+      .md h1, .md h2, .md h3, .md h4 { font-weight: 600; margin: 18px 0 8px; line-height: 1.3; }
       .md h1 { font-size: 17px; color: #fff; }
       .md h2 { font-size: 15px; color: #fff; }
-      .md h3 { font-size: 13px; color: #d4d8e0; }
-      .md { overflow-wrap: anywhere; word-break: break-word; }
+      .md h3 { font-size: 13px; color: var(--color-text-dim); }
       .md p { margin: 8px 0; }
       .md ul, .md ol { margin: 8px 0; padding-left: 22px; }
       .md li { margin: 4px 0; }
-      .md li::marker { color: var(--accent); }
-      .md a { color: var(--accent); border-bottom: 1px dotted; text-decoration: none; }
+      .md li::marker { color: var(--color-accent); }
+      .md a { color: var(--color-accent); border-bottom: 1px dotted; text-decoration: none; }
       .md strong { font-weight: 600; color: #fff; }
       .md em { font-style: italic; }
       .md blockquote {
-        border-left: 3px solid var(--accent);
+        border-left: 3px solid var(--color-accent);
         padding: 4px 12px;
         margin: 10px 0;
-        color: var(--muted);
+        color: var(--color-muted);
         font-style: italic;
         background: rgba(122, 162, 255, 0.04);
       }
       .md code {
-        background: var(--code-bg);
-        border: 1px solid var(--code-border);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         padding: 1px 5px;
         border-radius: 4px;
-        font: 12.5px/1.4 "SF Mono", Menlo, Consolas, monospace;
+        font: 12.5px/1.4 var(--font-mono);
         color: #ffd479;
       }
       .md pre {
         background: rgba(0, 0, 0, 0.4);
-        border: 1px solid var(--code-border);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 8px;
         padding: 10px 12px;
         margin: 10px 0;
@@ -177,9 +144,9 @@
         word-break: break-word;
         overflow-wrap: anywhere;
       }
-      .md hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+      .md hr { border: none; border-top: 1px solid var(--color-border); margin: 16px 0; }
       .md table { border-collapse: collapse; margin: 10px 0; width: 100%; }
-      .md th, .md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+      .md th, .md td { border: 1px solid var(--color-border); padding: 6px 10px; text-align: left; }
       .md th { background: rgba(255, 255, 255, 0.04); font-weight: 600; }
     </style>
   </head>
@@ -187,13 +154,13 @@
     <div id="frame">
       <div id="strip">
         <span class="dot"></span>
-        <span>Solver</span>
+        <span>Sotto</span>
         <span class="hint">Ctrl+B hides · hover to scroll</span>
       </div>
       <div id="content">
         <div id="empty">
           Press <kbd>Ctrl+M</kbd> in Chrome to ask Claude.<br />
-          Press <kbd>Ctrl+B</kbd> to hide/show this overlay.<br />
+          Press <kbd>Ctrl+B</kbd> to hide / show this overlay.<br />
           <span style="font-size: 11px; opacity: 0.7;">
             Click-through · scroll on hover · hidden from screen capture
           </span>

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+    <title>Sotto Preferences</title>
+    <link rel="stylesheet" href="../shared/tokens.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header id="titlebar"></header>
+
+    <div id="layout">
+      <nav id="sidebar">
+        <h1 class="brand">Sotto</h1>
+        <ul class="tabs">
+          <li data-tab="general"   class="tab active">General</li>
+          <li data-tab="triggers"  class="tab">Triggers</li>
+          <li data-tab="voice"     class="tab">Voice</li>
+          <li data-tab="prompts"   class="tab">Prompts</li>
+          <li data-tab="api"       class="tab">API & Models</li>
+          <li data-tab="extension" class="tab">Extension</li>
+          <li data-tab="about"     class="tab">About</li>
+        </ul>
+      </nav>
+
+      <main id="content">
+        <!-- General -->
+        <section class="pane" data-pane="general">
+          <h2>General</h2>
+
+          <div class="group">
+            <h3 class="group-title">Appearance</h3>
+
+            <div class="row">
+              <label class="row-label">Theme</label>
+              <div class="seg" data-setting="theme">
+                <button class="seg-btn" data-value="dark">Dark</button>
+                <button class="seg-btn" data-value="light">Light</button>
+                <button class="seg-btn" data-value="auto">Auto</button>
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="row-label" for="opacity">Overlay opacity</label>
+              <div class="slider-wrap">
+                <input type="range" id="opacity" min="40" max="100" step="1" data-setting="opacity" />
+                <span class="slider-val" id="opacity-val">92%</span>
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="row-label" for="fontSize">Answer font size</label>
+              <div class="slider-wrap">
+                <input type="range" id="fontSize" min="11" max="18" step="1" data-setting="fontSize" />
+                <span class="slider-val" id="fontSize-val">14 px</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Behavior</h3>
+
+            <div class="row toggle-row" data-setting="autoLaunch">
+              <div>
+                <div class="row-label">Launch Sotto at login</div>
+                <div class="row-hint">Tray icon appears automatically when you sign in.</div>
+              </div>
+              <label class="switch"><input type="checkbox" id="autoLaunch" /><span></span></label>
+            </div>
+
+            <div class="row toggle-row" data-setting="showNotifications">
+              <div>
+                <div class="row-label">Show notifications</div>
+                <div class="row-hint">Native OS notifications for status changes.</div>
+              </div>
+              <label class="switch"><input type="checkbox" id="showNotifications" /><span></span></label>
+            </div>
+
+            <div class="row toggle-row" data-setting="positionOverChrome">
+              <div>
+                <div class="row-label">Position overlay over Chrome (macOS)</div>
+                <div class="row-hint">Anchors the overlay to the right edge of the active Chrome window.</div>
+              </div>
+              <label class="switch"><input type="checkbox" id="positionOverChrome" /><span></span></label>
+            </div>
+
+            <div class="row toggle-row" data-setting="persistHistory">
+              <div>
+                <div class="row-label">Remember answers across sessions</div>
+                <div class="row-hint">Keeps up to 100 past Q&As in a local file. Off by default.</div>
+              </div>
+              <label class="switch"><input type="checkbox" id="persistHistory" /><span></span></label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Placeholders for the other tabs (filled in later phases) -->
+        <section class="pane" data-pane="triggers" hidden>
+          <h2>Triggers</h2>
+          <p class="dim">Coming in Phase 2 — rebindable global shortcuts (move overlay, font size, opacity, clear, history rail).</p>
+          <div class="default-list">
+            <div class="kv"><kbd>Ctrl+M</kbd><span>Ask Claude (Chrome extension shortcut)</span></div>
+            <div class="kv"><kbd>Ctrl+Shift+V</kbd><span>Voice toggle (Phase 1)</span></div>
+            <div class="kv"><kbd>Ctrl+B</kbd><span>Show / hide overlay</span></div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="voice" hidden>
+          <h2>Voice</h2>
+          <p class="dim">Coming in Phase 1 — enable voice trigger, silence threshold, max recording length, Whisper model.</p>
+        </section>
+
+        <section class="pane" data-pane="prompts" hidden>
+          <h2>Prompts</h2>
+          <p class="dim">Coming in Phase 3 — Recap / Define / Explain / Translate modes, bound to <kbd>Ctrl+1</kbd>…<kbd>Ctrl+5</kbd>.</p>
+        </section>
+
+        <section class="pane" data-pane="api" hidden>
+          <h2>API & Models</h2>
+
+          <div class="group">
+            <h3 class="group-title">Anthropic</h3>
+            <div class="field">
+              <div class="field-label">
+                <label for="key-anthropic-set">API key</label>
+                <span class="chip" id="anthropic-status">checking…</span>
+              </div>
+              <div class="field-input">
+                <input class="input" type="password" id="key-anthropic-set" placeholder="sk-ant-…" autocomplete="off" />
+                <button class="btn btn-ghost reveal" data-target="key-anthropic-set" title="Reveal / hide">👁</button>
+                <button class="btn" id="save-anthropic">Save</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">OpenAI (voice)</h3>
+            <div class="field">
+              <div class="field-label">
+                <label for="key-openai-set">API key</label>
+                <span class="chip" id="openai-status">checking…</span>
+              </div>
+              <div class="field-input">
+                <input class="input" type="password" id="key-openai-set" placeholder="sk-…" autocomplete="off" />
+                <button class="btn btn-ghost reveal" data-target="key-openai-set" title="Reveal / hide">👁</button>
+                <button class="btn" id="save-openai">Save</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="extension" hidden>
+          <h2>Chrome extension</h2>
+          <div class="ext-status">
+            <span class="chip" id="ext-set-chip">checking…</span>
+          </div>
+          <p class="dim sm">
+            Sotto detects the extension when its background worker pings the local daemon.
+            If it goes offline, you'll see a warning in the tray.
+          </p>
+          <div class="row gap" style="margin-top: var(--sp-4)">
+            <button class="btn btn-primary" id="ext-open-page">Open chrome://extensions ↗</button>
+            <button class="btn" id="ext-open-folder">Open extension folder</button>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="about" hidden>
+          <h2>About Sotto</h2>
+          <div id="about-info"></div>
+          <div class="row gap" style="margin-top: var(--sp-5)">
+            <button class="btn" id="rerun-onboarding">Re-run setup</button>
+            <button class="btn btn-link" id="open-repo">github.com/shanto462/Sotto ↗</button>
+          </div>
+          <p class="dim sm" style="margin-top: var(--sp-5)">
+            Licensed under a custom Personal &amp; Educational Use license.
+            See LICENSE for restrictions on use during interviews, exams, or any
+            evaluative setting.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" hidden></div>
+
+    <script src="ui.js"></script>
+  </body>
+</html>

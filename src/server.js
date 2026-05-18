@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { MODEL } from "./config.js";
+import { recordHeartbeat } from "./extension-monitor.js";
 
 /**
  * Create a small HTTP server exposing:
@@ -32,6 +33,13 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, busy, model: MODEL, mode }));
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/heartbeat") {
+      recordHeartbeat();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
       return;
     }
 

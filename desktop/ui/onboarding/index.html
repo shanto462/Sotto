@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+    <title>Welcome to Sotto</title>
+    <link rel="stylesheet" href="../shared/tokens.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header id="titlebar"></header>
+
+    <main id="wizard">
+      <!-- Step 1: Welcome -->
+      <section class="step" data-step="1">
+        <div class="hero">
+          <div class="hero-mark">S</div>
+          <h1>Welcome to Sotto</h1>
+          <p class="lede">
+            Press <kbd>Ctrl+M</kbd> in Chrome — Sotto captures the window, asks Claude
+            to explain or recap it, and shows the answer in an overlay that's hidden
+            from screen-share.
+          </p>
+        </div>
+
+        <div class="card">
+          <p class="card-title">Personal & Educational Use License</p>
+          <p class="card-body dim">
+            Sotto is for lecturers, presenters, and streamers — not for interviews,
+            exams, or any setting where AI use isn't openly disclosed. See the full
+            license for the complete list.
+          </p>
+          <label class="check">
+            <input type="checkbox" id="license-accept" />
+            <span>I've read and accept the acceptable-use terms.</span>
+          </label>
+          <button class="btn btn-link" id="open-license">View LICENSE ↗</button>
+        </div>
+      </section>
+
+      <!-- Step 2: API keys -->
+      <section class="step" data-step="2" hidden>
+        <div class="step-header">
+          <h2>API keys</h2>
+          <p class="dim">Stored in your OS keychain — never written to disk in plaintext.</p>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <label for="key-anthropic">Anthropic API key</label>
+            <span class="chip" id="key-anthropic-status">required</span>
+          </div>
+          <div class="field-input">
+            <input class="input" type="password" id="key-anthropic" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+            <button class="btn btn-ghost reveal" data-target="key-anthropic" title="Reveal / hide">👁</button>
+          </div>
+          <p class="field-hint">
+            Get one at
+            <button class="btn btn-link" data-href="https://console.anthropic.com/settings/keys">console.anthropic.com ↗</button>
+          </p>
+        </div>
+
+        <div class="field">
+          <div class="field-label">
+            <label for="key-openai">OpenAI API key</label>
+            <span class="chip" id="key-openai-status">optional · for voice</span>
+          </div>
+          <div class="field-input">
+            <input class="input" type="password" id="key-openai" placeholder="sk-…" autocomplete="off" spellcheck="false" />
+            <button class="btn btn-ghost reveal" data-target="key-openai" title="Reveal / hide">👁</button>
+          </div>
+          <p class="field-hint">
+            Used for Whisper voice transcription. Get one at
+            <button class="btn btn-link" data-href="https://platform.openai.com/api-keys">platform.openai.com ↗</button>
+          </p>
+        </div>
+      </section>
+
+      <!-- Step 3: Permissions -->
+      <section class="step" data-step="3" hidden>
+        <div class="step-header">
+          <h2>System permissions</h2>
+          <p class="dim">Required by macOS / Windows for capture, voice, and shortcuts.</p>
+        </div>
+
+        <ul class="perm-list" id="permissions">
+          <li class="perm-item" data-perm="screen">
+            <div class="perm-icon">●</div>
+            <div class="perm-body">
+              <div class="perm-name">Screen Recording</div>
+              <div class="perm-desc">Required to capture the active Chrome window.</div>
+            </div>
+            <button class="btn btn-ghost perm-open" data-pane="screen">Open Settings</button>
+          </li>
+          <li class="perm-item" data-perm="mic">
+            <div class="perm-icon">●</div>
+            <div class="perm-body">
+              <div class="perm-name">Microphone</div>
+              <div class="perm-desc">Needed only for the voice trigger (Ctrl+Shift+V).</div>
+            </div>
+            <button class="btn btn-ghost perm-open" data-pane="microphone">Open Settings</button>
+          </li>
+          <li class="perm-item" data-perm="accessibility">
+            <div class="perm-icon">●</div>
+            <div class="perm-body">
+              <div class="perm-name">Accessibility (macOS only)</div>
+              <div class="perm-desc">Lets Ctrl+B toggle the overlay from any app.</div>
+            </div>
+            <button class="btn btn-ghost perm-open" data-pane="accessibility">Open Settings</button>
+          </li>
+        </ul>
+
+        <p class="dim sm">
+          You can skip and grant later from System Settings — the tray icon will warn you
+          until everything's in place.
+        </p>
+      </section>
+
+      <!-- Step 4: Chrome extension -->
+      <section class="step" data-step="4" hidden>
+        <div class="step-header">
+          <h2>Chrome extension</h2>
+          <p class="dim">The extension fires Ctrl+M without switching focus to Sotto.</p>
+        </div>
+
+        <div class="ext-status">
+          <span class="chip" id="ext-chip">checking…</span>
+          <span class="dim sm" id="ext-detail">Polling for heartbeat every 2s while this window is open.</span>
+        </div>
+
+        <ol class="steps-list">
+          <li>Click <strong>Open Chrome</strong> below — the extensions page opens.</li>
+          <li>Enable <strong>Developer mode</strong> (top-right toggle).</li>
+          <li>Click <strong>Load unpacked</strong>.</li>
+          <li>Choose this folder:</li>
+        </ol>
+
+        <div class="path-box">
+          <code id="ext-path">/path/to/sotto/extension</code>
+          <button class="btn" id="ext-copy">Copy</button>
+        </div>
+
+        <div class="row gap">
+          <button class="btn btn-primary" id="ext-open-page">Open chrome://extensions ↗</button>
+          <button class="btn" id="ext-open-folder">Reveal in Finder</button>
+        </div>
+
+        <p class="dim sm">
+          The status above turns green once the extension's background worker pings the
+          Sotto app.
+        </p>
+      </section>
+
+      <!-- Finish -->
+      <section class="step" data-step="5" hidden>
+        <div class="hero">
+          <div class="hero-mark ok">✓</div>
+          <h1>You're all set</h1>
+          <p class="lede">Sotto is ready in your menu bar.</p>
+        </div>
+
+        <div class="cheat">
+          <div class="cheat-row"><kbd>Ctrl+M</kbd> <span>Ask Claude about the current Chrome tab</span></div>
+          <div class="cheat-row"><kbd>Ctrl+Shift+V</kbd> <span>Ask by voice (toggle to start/stop)</span></div>
+          <div class="cheat-row"><kbd>Ctrl+B</kbd> <span>Show / hide the overlay</span></div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="footer">
+      <div id="step-dots"></div>
+      <div class="row gap">
+        <button class="btn btn-ghost" id="btn-back">Back</button>
+        <button class="btn btn-ghost" id="btn-skip">Skip</button>
+        <button class="btn btn-primary" id="btn-next">Continue</button>
+      </div>
+    </footer>
+
+    <script src="ui.js"></script>
+  </body>
+</html>
