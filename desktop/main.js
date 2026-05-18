@@ -16,6 +16,7 @@ import { markedHighlight } from "marked-highlight";
 
 import {
   askClaude,
+  askClaudeText,
   captureChromeWindowByTitle,
   DEFAULT_PORT,
   hasSecret,
@@ -27,6 +28,7 @@ import {
   resetSettings,
   saveSettings,
   setSecret,
+  transcribeAudio,
 } from "../src/index.js";
 import { createSolverServer } from "../src/server.js";
 
@@ -178,6 +180,67 @@ function toggleOverlay() {
   }
 }
 
+// ── Voice orchestration ──────────────────────────────────────────────────────
+function handleVoiceToggle() {
+  const settings = loadSettings();
+  if (settings.voice?.enabled === false) {
+    logger.info("voice trigger ignored (disabled in settings)");
+    return;
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    showOverlay(ensureOverlay(), isMac);
+    overlayWin?.webContents.send("status", {
+      state: "error",
+      error:
+        "OPENAI_API_KEY is required for voice. Open Preferences → API & Models.",
+    });
+    return;
+  }
+  showOverlay(ensureOverlay(), isMac);
+  overlayWin?.webContents.send("voice:toggle");
+}
+
+async function handleVoiceAudio(arrayBuffer) {
+  const log = logger.child({ trigger: "voice" });
+  setTrayState("busy");
+  try {
+    overlayWin?.webContents.send("status", { state: "transcribing" });
+
+    const settings = loadSettings();
+    const { text: transcript } = await transcribeAudio(
+      Buffer.from(arrayBuffer),
+      {
+        model: settings.voice?.whisperModel || "whisper-1",
+        log,
+      },
+    );
+
+    if (!transcript || !transcript.trim()) {
+      throw new Error("No speech detected. Try again, a bit louder.");
+    }
+
+    overlayWin?.webContents.send("status", {
+      state: "asking",
+      transcript,
+    });
+
+    const { text, meta } = await askClaudeText(transcript, log);
+    const html = await marked.parse(text);
+    overlayWin?.webContents.send("answer", {
+      html,
+      text,
+      meta: { ...meta, transcript },
+      source: "voice",
+    });
+  } catch (err) {
+    const msg = err?.message ?? String(err);
+    log.error({ err: msg }, "voice handler failed");
+    overlayWin?.webContents.send("status", { state: "error", error: msg });
+  } finally {
+    setTrayState(isExtensionAlive() ? "idle" : "warn");
+  }
+}
+
 // ── Permissions (macOS only; Windows reports "granted") ──────────────────────
 function getPermissionStatus() {
   if (!isMac) {
@@ -318,6 +381,11 @@ function registerIPC() {
   ipcMain.on("set-ignore-mouse-events", (_e, ignore, options) => {
     overlayWin?.setIgnoreMouseEvents(!!ignore, options ?? undefined);
   });
+
+  // Voice: renderer sends recorded audio buffer here
+  ipcMain.on("voice:audio", (_e, arrayBuffer) => {
+    handleVoiceAudio(arrayBuffer);
+  });
 }
 
 function notify(title, body) {
@@ -351,10 +419,7 @@ async function startRuntime() {
     },
     voice: {
       accelerator: settings.shortcuts.voice,
-      fn: () => {
-        // Phase 1 — wire voice trigger here.
-        logger.info("voice trigger pressed (Phase 1 — not wired yet)");
-      },
+      fn: handleVoiceToggle,
     },
     toggle: {
       accelerator: settings.shortcuts.toggle,
@@ -395,10 +460,7 @@ app.whenReady().then(async () => {
 
   createTray({
     onAsk: () => handleAsk(logger).catch(() => {}),
-    onVoice: () => {
-      // Phase 1
-      logger.info("voice trigger pressed (tray)");
-    },
+    onVoice: handleVoiceToggle,
     onToggleOverlay: toggleOverlay,
     onOpenSettings: () => openSettings(),
     onOpenAbout: () => openSettings("about"),

@@ -109,7 +109,46 @@
 
         <section class="pane" data-pane="voice" hidden>
           <h2>Voice</h2>
-          <p class="dim">Coming in Phase 1 — enable voice trigger, silence threshold, max recording length, Whisper model.</p>
+
+          <div class="group">
+            <h3 class="group-title">Trigger</h3>
+
+            <div class="row toggle-row">
+              <div>
+                <div class="row-label">Enable voice trigger</div>
+                <div class="row-hint">Press <kbd>Ctrl+Shift+V</kbd> to start, press again to stop.</div>
+              </div>
+              <label class="switch"><input type="checkbox" id="voice-enabled" /><span></span></label>
+            </div>
+
+            <div class="row">
+              <label class="row-label" for="voice-max">Max recording length</label>
+              <div class="slider-wrap">
+                <input type="range" id="voice-max" min="5" max="120" step="5" />
+                <span class="slider-val" id="voice-max-val">30 s</span>
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="row-label">Whisper model</label>
+              <div class="seg" data-setting="voice.whisperModel">
+                <button class="seg-btn" data-value="whisper-1">whisper-1</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="callout" id="voice-key-callout" hidden>
+            <span>⚠</span>
+            <div>
+              <div class="row-label">OpenAI API key required</div>
+              <div class="row-hint">Add it in the <strong>API &amp; Models</strong> tab to use voice.</div>
+            </div>
+          </div>
+
+          <p class="dim sm" style="margin-top: var(--sp-4)">
+            Audio is sent to OpenAI for transcription, then the transcript is sent to Claude.
+            Roughly $0.006 per minute of audio at current Whisper-1 pricing.
+          </p>
         </section>
 
         <section class="pane" data-pane="prompts" hidden>

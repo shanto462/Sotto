@@ -1,5 +1,5 @@
 export { captureChromeWindowByTitle } from "./capture.js";
-export { askClaude } from "./claude.js";
+export { askClaude, askClaudeText } from "./claude.js";
 export { DEFAULT_PORT, MAX_TOKENS, MODEL } from "./config.js";
 export {
   isExtensionAlive,
@@ -8,7 +8,8 @@ export {
 } from "./extension-monitor.js";
 export { logger } from "./logger.js";
 export { queryActiveChromeWindow } from "./os.js";
-export { SYSTEM_PROMPT } from "./prompt.js";
+export { SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT } from "./prompt.js";
+export { transcribeAudio } from "./voice.js";
 export {
   getSecret,
   hasSecret,

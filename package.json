@@ -19,6 +19,7 @@
     "highlight.js": "^11.11.1",
     "marked": "^18.0.3",
     "marked-highlight": "^2.2.4",
+    "openai": "^6.38.0",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3"
   },

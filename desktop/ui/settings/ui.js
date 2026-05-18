@@ -13,6 +13,7 @@ function openTab(name) {
   $$(".tab").forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
   $$(".pane").forEach((p) => (p.hidden = p.dataset.pane !== name));
   if (name === "api") loadKeyStatuses();
+  if (name === "voice") loadVoiceTab();
   if (name === "extension") loadExtensionStatus();
   if (name === "about") loadAboutInfo();
 }
@@ -76,6 +77,35 @@ function setToggle(id, value) {
 async function updateSetting(patch) {
   settings = await window.api.saveSettings(patch);
   toast("Saved");
+}
+
+// ── Voice tab ───────────────────────────────────────────────────────────────
+async function loadVoiceTab() {
+  if (!settings) settings = await window.api.getSettings();
+  const v = settings.voice || {};
+
+  const enabled = document.getElementById("voice-enabled");
+  enabled.checked = v.enabled !== false;
+  enabled.onchange = () => updateSetting({ voice: { enabled: enabled.checked } });
+
+  const max = document.getElementById("voice-max");
+  const maxVal = document.getElementById("voice-max-val");
+  max.value = v.maxRecordingSec ?? 30;
+  maxVal.textContent = `${max.value} s`;
+  max.oninput = () => (maxVal.textContent = `${max.value} s`);
+  max.onchange = () =>
+    updateSetting({ voice: { maxRecordingSec: Number(max.value) } });
+
+  $$(`.seg[data-setting="voice.whisperModel"] .seg-btn`).forEach((b) => {
+    b.classList.toggle("active", b.dataset.value === (v.whisperModel || "whisper-1"));
+    b.onclick = () =>
+      updateSetting({ voice: { whisperModel: b.dataset.value } });
+  });
+
+  // Warn if OpenAI key missing
+  const info = await window.api.getSecretInfo();
+  const callout = document.getElementById("voice-key-callout");
+  if (callout) callout.hidden = !!info?.openai;
 }
 
 // ── API tab ─────────────────────────────────────────────────────────────────

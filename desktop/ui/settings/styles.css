@@ -229,6 +229,21 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
 /* Extension pane */
 .ext-status { margin-bottom: var(--sp-3); }
 
+/* Callout */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--color-warning);
+}
+.callout > span:first-child { font-size: 18px; line-height: 1; }
+.callout .row-label { color: var(--color-text); font-weight: 500; }
+.callout .row-hint { color: var(--color-text-dim); }
+
 /* About pane */
 #about-info {
   background: var(--color-surface-2);
