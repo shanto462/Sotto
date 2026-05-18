@@ -1,5 +1,8 @@
-const ENDPOINT = "http://127.0.0.1:8765/ask";
-const HEALTH = "http://127.0.0.1:8765/health";
+const PORT = 8765;
+const BASE = `http://127.0.0.1:${PORT}`;
+const ASK = `${BASE}/ask`;
+const HEALTH = `${BASE}/health`;
+const HEARTBEAT = `${BASE}/heartbeat`;
 const LOG_PREFIX = "[solver-bg]";
 
 const log = (...args) => console.log(LOG_PREFIX, ...args);
@@ -8,25 +11,29 @@ const err = (...args) => console.error(LOG_PREFIX, ...args);
 
 log("service worker started");
 
-chrome.runtime.onInstalled?.addListener((details) => {
-  log(`onInstalled · reason=${details.reason}`);
-  pingHealth();
-  logRegisteredShortcuts();
-});
+// ── Heartbeat ───────────────────────────────────────────────────────────────
+let lastHeartbeatAt = 0;
+const HEARTBEAT_DEDUPE_MS = 4_000;
 
-chrome.runtime.onStartup?.addListener(() => {
-  log("onStartup");
-  pingHealth();
-  logRegisteredShortcuts();
-});
+async function sendHeartbeat(reason = "") {
+  const now = Date.now();
+  if (now - lastHeartbeatAt < HEARTBEAT_DEDUPE_MS) return;
+  lastHeartbeatAt = now;
+  try {
+    const r = await fetch(HEARTBEAT, { method: "POST" });
+    if (!r.ok) warn(`heartbeat non-2xx: ${r.status} (${reason})`);
+  } catch {
+    // Sotto app not running — silent.
+  }
+}
 
 async function pingHealth() {
   try {
     const r = await fetch(HEALTH);
     const body = await r.text();
-    log(`health check · status=${r.status} · body=${body}`);
+    log(`health · status=${r.status} · ${body}`);
   } catch (e) {
-    warn(`health check failed: ${e?.message ?? e} · is "npm run serve" running?`);
+    warn(`health failed: ${e?.message ?? e} · is Sotto running?`);
   }
 }
 
@@ -40,40 +47,76 @@ async function logRegisteredShortcuts() {
       log(`command "${c.name}" · ${status}`);
     }
   } catch (e) {
-    warn(`getAll failed: ${e?.message ?? e}`);
+    warn(`commands.getAll failed: ${e?.message ?? e}`);
   }
 }
 
-// Toast messages are sent to the active tab when possible.
+// ── Lifecycle events ────────────────────────────────────────────────────────
+chrome.runtime.onInstalled?.addListener((d) => {
+  log(`onInstalled · reason=${d.reason}`);
+  sendHeartbeat("onInstalled");
+  pingHealth();
+  logRegisteredShortcuts();
+});
+chrome.runtime.onStartup?.addListener(() => {
+  log("onStartup");
+  sendHeartbeat("onStartup");
+  pingHealth();
+  logRegisteredShortcuts();
+});
+
+// Periodic heartbeat — works even when the SW is dormant (alarms wake it).
+chrome.alarms?.create("heartbeat", { periodInMinutes: 0.5 });
+chrome.alarms?.onAlarm.addListener((a) => {
+  if (a.name === "heartbeat") sendHeartbeat("alarm");
+});
+
+// Tab activity wakes the SW and doubles as an "alive" signal.
+chrome.tabs?.onActivated?.addListener(() => sendHeartbeat("tab-activated"));
+chrome.tabs?.onUpdated?.addListener((_id, info) => {
+  if (info.status === "complete") sendHeartbeat("tab-loaded");
+});
+
+// Content scripts ping us on every page load.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type === "heartbeat-trigger") {
+    sendHeartbeat("content-script");
+    try {
+      sendResponse?.({ ok: true });
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+  return false;
+});
+
+// ── Toast helper ────────────────────────────────────────────────────────────
 async function showToastOnActiveTab(text, kind) {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) {
-      log("no active tab to toast on");
-      return;
-    }
-    // Can't message restricted URLs (chrome://, web store, etc).
-    if (!/^https?:|^file:/.test(tab.url ?? "")) {
-      log(`active tab is restricted (${tab.url}); skipping toast`);
-      return;
-    }
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (!tab?.id) return;
+    if (!/^https?:|^file:/.test(tab.url ?? "")) return; // chrome://, web store, etc.
     await chrome.tabs.sendMessage(tab.id, { type: "toast", text, kind });
-  } catch (e) {
-    // Tab content script may not be loaded (e.g. tab opened before extension install).
-    log(`toast skipped: ${e?.message ?? e}`);
+  } catch {
+    // Tab may not have the content script (loaded before install). Silent.
   }
 }
 
+// ── Ask trigger ─────────────────────────────────────────────────────────────
 async function runTrigger(source) {
-  log(`trigger fired · source=${source}`);
+  log(`trigger · source=${source}`);
   await showToastOnActiveTab("Asking Claude…", "pending");
   const startedAt = Date.now();
 
   try {
-    const res = await fetch(ENDPOINT, { method: "POST" });
-    const text = await res.text();
+    const r = await fetch(ASK, { method: "POST" });
+    const text = await r.text();
     const elapsed = Date.now() - startedAt;
-    log(`fetch done · status=${res.status} · elapsed=${elapsed}ms · body=${text}`);
+    log(`fetch · status=${r.status} · elapsed=${elapsed}ms`);
 
     let body = null;
     try {
@@ -82,21 +125,21 @@ async function runTrigger(source) {
       /* non-JSON */
     }
 
-    if (!res.ok) {
-      const msg = body?.error ?? text ?? `HTTP ${res.status}`;
-      warn(`backend non-2xx: ${msg}`);
-      await showToastOnActiveTab(`Solver failed: ${msg}`, "error");
+    if (!r.ok) {
+      const msg = body?.error ?? text ?? `HTTP ${r.status}`;
+      warn(`backend ${r.status}: ${msg}`);
+      await showToastOnActiveTab(`Sotto: ${msg}`, "error");
       return;
     }
 
     const ms = body?.durationMs
       ? ` (${(body.durationMs / 1000).toFixed(1)}s)`
       : "";
-    await showToastOnActiveTab(`Answer in terminal${ms}`, "ok");
+    await showToastOnActiveTab(`Answer in overlay${ms}`, "ok");
   } catch (e) {
     err(`fetch failed: ${e?.message ?? e}`);
     await showToastOnActiveTab(
-      `Daemon unreachable: ${e?.message ?? e}`,
+      "Sotto app not reachable — is it running?",
       "error",
     );
   }
@@ -107,5 +150,4 @@ chrome.commands.onCommand.addListener((command) => {
   if (command === "trigger-solver") runTrigger("shortcut");
 });
 
-// Toolbar icon click also triggers (handy when the shortcut conflicts).
 chrome.action.onClicked.addListener(() => runTrigger("toolbar-icon"));

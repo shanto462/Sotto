@@ -131,30 +131,50 @@
 
         <div class="ext-status">
           <span class="chip" id="ext-chip">checking…</span>
-          <span class="dim sm" id="ext-detail">Polling for heartbeat every 2s while this window is open.</span>
+          <span class="dim sm" id="ext-detail">Polling for heartbeat every 2s.</span>
         </div>
 
-        <ol class="steps-list">
-          <li>Click <strong>Open Chrome</strong> below — the extensions page opens.</li>
-          <li>Enable <strong>Developer mode</strong> (top-right toggle).</li>
-          <li>Click <strong>Load unpacked</strong>.</li>
-          <li>Choose this folder:</li>
-        </ol>
-
-        <div class="path-box">
-          <code id="ext-path">/path/to/sotto/extension</code>
-          <button class="btn" id="ext-copy">Copy</button>
+        <div class="ext-tabs" role="tablist">
+          <button class="ext-tab active" data-tab="install">First-time install</button>
+          <button class="ext-tab" data-tab="reload">Already installed?</button>
         </div>
 
-        <div class="row gap">
-          <button class="btn btn-primary" id="ext-open-page">Open chrome://extensions ↗</button>
-          <button class="btn" id="ext-open-folder">Reveal in Finder</button>
+        <div class="ext-tab-pane" data-pane="install">
+          <ol class="steps-list">
+            <li>Click <strong>Open chrome://extensions</strong> below.</li>
+            <li>Toggle <strong>Developer mode</strong> on (top-right).</li>
+            <li>Click <strong>Load unpacked</strong>.</li>
+            <li>Pick the folder shown below.</li>
+          </ol>
+
+          <div class="path-box">
+            <code id="ext-path">/path/to/sotto/extension</code>
+            <button class="btn" id="ext-copy">Copy</button>
+          </div>
+
+          <div class="row gap">
+            <button class="btn btn-primary" id="ext-open-page">Open chrome://extensions ↗</button>
+            <button class="btn" id="ext-open-folder">Open extension folder</button>
+          </div>
         </div>
 
-        <p class="dim sm">
-          The status above turns green once the extension's background worker pings the
-          Sotto app.
-        </p>
+        <div class="ext-tab-pane" data-pane="reload" hidden>
+          <ol class="steps-list">
+            <li>Click <strong>Open chrome://extensions</strong> below.</li>
+            <li>Find <strong>Sotto</strong> in the list.</li>
+            <li>Click the <strong>↻ reload icon</strong> on its card.</li>
+            <li>Open or refresh any web page — the heartbeat fires immediately.</li>
+          </ol>
+
+          <div class="row gap">
+            <button class="btn btn-primary" id="ext-open-page-2">Open chrome://extensions ↗</button>
+          </div>
+
+          <p class="dim sm" style="margin-top: var(--sp-3)">
+            A reload is needed after Sotto updates the extension (e.g. new permissions
+            or a new background script).
+          </p>
+        </div>
       </section>
 
       <!-- Finish -->

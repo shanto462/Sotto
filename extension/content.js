@@ -6,6 +6,16 @@ const log = (...args) => console.log(LOG_PREFIX, ...args);
 
 log(`content script loaded · href=${location.href}`);
 
+// Wake the service worker on every page load and ask it to send a heartbeat
+// to the Sotto desktop app. This means as soon as the user opens or navigates
+// any tab, Sotto detects the extension as alive — far faster than waiting on
+// the 30s background alarm.
+try {
+  chrome.runtime.sendMessage({ type: "heartbeat-trigger" });
+} catch {
+  /* extension context invalidated; ignore */
+}
+
 let activeToast = null;
 
 function showToast(text, kind = "ok") {

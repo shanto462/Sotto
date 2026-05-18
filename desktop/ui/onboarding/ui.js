@@ -202,7 +202,18 @@ $("#ext-copy").addEventListener("click", () => {
   setTimeout(() => ($("#ext-copy").textContent = "Copy"), 1200);
 });
 $("#ext-open-page").addEventListener("click", () => window.api.openExtensionPage());
+$("#ext-open-page-2")?.addEventListener("click", () => window.api.openExtensionPage());
 $("#ext-open-folder").addEventListener("click", () => window.api.openExtensionFolder());
+
+// Sub-tabs: First-time install / Already installed?
+$$(".ext-tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    $$(".ext-tab").forEach((b) => b.classList.toggle("active", b === btn));
+    $$(".ext-tab-pane").forEach(
+      (p) => (p.hidden = p.dataset.pane !== btn.dataset.tab),
+    );
+  });
+});
 
 // ── Footer navigation ───────────────────────────────────────────────────────
 $("#btn-back").addEventListener("click", () => showStep(current - 1));

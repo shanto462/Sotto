@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Sotto",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Press Ctrl+M in Chrome to ask Sotto about the current page. The answer renders in a hidden overlay (Sotto desktop app must be running).",
-  "permissions": ["alarms"],
+  "permissions": ["alarms", "tabs"],
   "host_permissions": [
     "http://127.0.0.1:8765/*",
     "http://localhost:8765/*"
