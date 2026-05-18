@@ -17,4 +17,7 @@ contextBridge.exposeInMainWorld("api", {
   openLicense: () => ipcRenderer.send("app:open-license"),
   copyToClipboard: (text) => ipcRenderer.send("clipboard:copy", text),
   finish: () => ipcRenderer.send("onboarding:finish"),
+  getTheme: () => ipcRenderer.invoke("theme:get"),
+  onThemeChange: (cb) =>
+    ipcRenderer.on("theme:changed", (_e, theme) => cb(theme)),
 });

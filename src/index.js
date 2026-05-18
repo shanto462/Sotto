@@ -17,7 +17,12 @@ export {
 } from "./history.js";
 export { logger } from "./logger.js";
 export { queryActiveChromeWindow } from "./os.js";
-export { SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT } from "./prompt.js";
+export {
+  getPromptById,
+  PROMPT_PRESETS,
+  SYSTEM_PROMPT,
+  VOICE_SYSTEM_PROMPT,
+} from "./prompt.js";
 export {
   getSecret,
   hasSecret,

@@ -22,6 +22,7 @@ import {
   clearHistory,
   DEFAULT_PORT,
   getHistoryEntry,
+  getPromptById,
   hasSecret,
   hydrateProcessEnv,
   initHistory,
@@ -29,6 +30,7 @@ import {
   listHistory,
   loadSettings,
   logger,
+  PROMPT_PRESETS,
   queryActiveChromeWindow,
   resetSettings,
   saveSettings,
@@ -47,7 +49,7 @@ import {
   positionOverChrome,
   showOverlay,
 } from "./windows/overlay.js";
-import { openSettingsWindow } from "./windows/settings.js";
+import { getSettingsWindow, openSettingsWindow } from "./windows/settings.js";
 import { registerShortcuts, unregisterAll } from "./shortcuts.js";
 import {
   createTray,
@@ -161,13 +163,20 @@ async function handleAsk(log) {
     overlayWin?.webContents.send("status", { state: "pending" });
 
     const { png, name } = await captureChromeWindowByTitle(title, log);
-    const { text, meta } = await askClaude(png, log);
+    const prompt = getPromptById(loadSettings().activePromptId);
+    const { text, meta } = await askClaude(png, log, prompt.body);
+    meta.promptName = prompt.name;
     const html = await marked.parse(text);
-    overlayWin?.webContents.send("answer", { html, text, meta });
+    overlayWin?.webContents.send("answer", {
+      html,
+      text,
+      meta,
+      source: "text",
+    });
 
     addHistoryEntry({
       source: "text",
-      question: name ? `Chrome: ${name}` : "Chrome window",
+      question: `[${prompt.name}] ${name || "Chrome window"}`,
       text,
       html,
       meta,
@@ -205,6 +214,28 @@ function nudgeOverlay(dx, dy) {
   const [x, y] = overlayWin.getPosition();
   overlayWin.setPosition(x + dx, y + dy, true);
   if (!overlayWin.isVisible()) showOverlay(overlayWin, isMac);
+}
+
+function selectPrompt(id) {
+  const preset = getPromptById(id);
+  saveSettings({ activePromptId: preset.id });
+  broadcastPrompt(preset.id);
+  showOverlay(ensureOverlay(), isMac);
+  overlayWin?.webContents.send("prompt:toast", { name: preset.name });
+  logger.info({ id: preset.id, name: preset.name }, "active prompt set");
+}
+
+function broadcastTheme(theme) {
+  for (const w of [overlayWin, onboardingWin, getSettingsWindow()]) {
+    if (w && !w.isDestroyed()) w.webContents.send("theme:changed", theme);
+  }
+}
+
+function broadcastPrompt(id) {
+  const p = getPromptById(id);
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    overlayWin.webContents.send("prompt:active", { id: p.id, name: p.name });
+  }
 }
 
 // ── Voice orchestration ──────────────────────────────────────────────────────
@@ -347,9 +378,22 @@ function registerIPC() {
     const next = saveSettings(patch);
     if ("autoLaunch" in (patch || {})) applyAutoLaunch(next.autoLaunch);
     if ("persistHistory" in (patch || {})) setHistoryPersist(next.persistHistory);
+    if ("theme" in (patch || {})) broadcastTheme(next.theme);
+    if ("activePromptId" in (patch || {})) broadcastPrompt(next.activePromptId);
     return next;
   });
   ipcMain.handle("settings:reset", () => resetSettings());
+
+  // Prompts
+  ipcMain.handle("prompts:list", () => PROMPT_PRESETS);
+  ipcMain.handle("prompts:get-active", () => {
+    const p = getPromptById(loadSettings().activePromptId);
+    return { id: p.id, name: p.name };
+  });
+  ipcMain.on("prompts:select", (_e, id) => selectPrompt(id));
+
+  // Theme
+  ipcMain.handle("theme:get", () => loadSettings().theme || "dark");
 
   // Secrets
   ipcMain.handle("secret:info", () => ({
@@ -471,7 +515,7 @@ async function startRuntime() {
   });
 
   const sh = settings.shortcuts;
-  const { failures } = registerShortcuts({
+  const bindings = {
     ask: {
       accelerator: sh.ask,
       fn: () => handleAsk(logger.child({ trigger: "shortcut" })).catch(() => {}),
@@ -496,7 +540,18 @@ async function startRuntime() {
     nudgeDown: { accelerator: "Control+Down", fn: () => nudgeOverlay(0, 40) },
     nudgeLeft: { accelerator: "Control+Left", fn: () => nudgeOverlay(-40, 0) },
     nudgeRight: { accelerator: "Control+Right", fn: () => nudgeOverlay(40, 0) },
-  });
+  };
+
+  // Prompt-mode hotkeys (Ctrl+1..Ctrl+5)
+  for (const preset of PROMPT_PRESETS) {
+    if (!preset.hotkey) continue;
+    bindings[`prompt-${preset.id}`] = {
+      accelerator: preset.hotkey,
+      fn: () => selectPrompt(preset.id),
+    };
+  }
+
+  const { failures } = registerShortcuts(bindings);
   for (const f of failures) {
     logger.warn(f, "global shortcut registration failed");
   }

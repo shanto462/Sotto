@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { MAX_TOKENS, MODEL } from "./config.js";
 import { SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT } from "./prompt.js";
 
+export { SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT };
+
 /**
  * Send a PNG buffer + system prompt to Claude and return the answer text + usage meta.
  *
@@ -9,7 +11,7 @@ import { SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT } from "./prompt.js";
  * @param {import("pino").Logger} [log]
  * @returns {Promise<{text: string, meta: object}>}
  */
-export async function askClaude(pngBuffer, log) {
+export async function askClaude(pngBuffer, log, systemPrompt) {
   const start = performance.now();
   const client = new Anthropic();
   const data = pngBuffer.toString("base64");
@@ -25,7 +27,7 @@ export async function askClaude(pngBuffer, log) {
             type: "image",
             source: { type: "base64", media_type: "image/png", data },
           },
-          { type: "text", text: SYSTEM_PROMPT },
+          { type: "text", text: systemPrompt || SYSTEM_PROMPT },
         ],
       },
     ],

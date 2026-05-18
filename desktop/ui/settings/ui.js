@@ -4,6 +4,13 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 let settings = null;
 let toastTimer = null;
 
+// Theme
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme || "dark";
+}
+window.api.getTheme().then(applyTheme).catch(() => applyTheme("dark"));
+window.api.onThemeChange(applyTheme);
+
 // ── Tabs ────────────────────────────────────────────────────────────────────
 $$(".tab").forEach((el) => {
   el.addEventListener("click", () => openTab(el.dataset.tab));
@@ -14,6 +21,7 @@ function openTab(name) {
   $$(".pane").forEach((p) => (p.hidden = p.dataset.pane !== name));
   if (name === "api") loadKeyStatuses();
   if (name === "voice") loadVoiceTab();
+  if (name === "prompts") loadPromptsTab();
   if (name === "extension") loadExtensionStatus();
   if (name === "about") loadAboutInfo();
 }
@@ -77,6 +85,46 @@ function setToggle(id, value) {
 async function updateSetting(patch) {
   settings = await window.api.saveSettings(patch);
   toast("Saved");
+}
+
+// ── Prompts tab ─────────────────────────────────────────────────────────────
+async function loadPromptsTab() {
+  if (!settings) settings = await window.api.getSettings();
+  const prompts = await window.api.listPrompts();
+  const host = document.getElementById("prompts-list");
+  if (!host) return;
+  host.innerHTML = prompts
+    .map(
+      (p) => `
+        <div class="prompt-card${p.id === settings.activePromptId ? " active" : ""}" data-id="${p.id}">
+          <div class="prompt-head">
+            <div class="prompt-name">${escapeHtml(p.name)}</div>
+            ${p.hotkey ? `<kbd>${escapeHtml(p.hotkey.replace("Control", "Ctrl"))}</kbd>` : ""}
+          </div>
+          <div class="prompt-desc">${escapeHtml(p.description || "")}</div>
+          <pre class="prompt-body">${escapeHtml(p.body)}</pre>
+        </div>
+      `,
+    )
+    .join("");
+  host.querySelectorAll(".prompt-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const id = card.dataset.id;
+      window.api.selectPrompt(id);
+      updateSetting({ activePromptId: id });
+      // Mark active visually
+      host.querySelectorAll(".prompt-card").forEach((c) =>
+        c.classList.toggle("active", c.dataset.id === id),
+      );
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 // ── Voice tab ───────────────────────────────────────────────────────────────

@@ -23,7 +23,10 @@ const DEFAULTS = {
     ask: "Control+M",
     voice: "Control+Shift+V",
     toggle: "Control+B",
+    history: "Control+H",
+    clear: "Control+L",
   },
+  activePromptId: "recap",
   onboardingComplete: false,
 };
 

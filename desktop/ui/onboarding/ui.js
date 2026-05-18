@@ -3,6 +3,13 @@ let current = 1;
 let licenseAccepted = false;
 let extensionPollTimer = null;
 
+// Theme
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme || "dark";
+}
+window.api.getTheme().then(applyTheme).catch(() => applyTheme("dark"));
+window.api.onThemeChange(applyTheme);
+
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 

@@ -3,6 +3,33 @@ const footerEl = document.getElementById("footer");
 const railEl = document.getElementById("rail");
 const railListEl = document.getElementById("rail-list");
 const sourceChipEl = document.getElementById("source-chip");
+const promptChipEl = document.getElementById("prompt-chip");
+const promptToastEl = document.getElementById("prompt-toast");
+
+// ── Theme ────────────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme || "dark";
+}
+window.api.getTheme().then(applyTheme).catch(() => applyTheme("dark"));
+window.api.onThemeChange(applyTheme);
+
+// ── Active prompt ────────────────────────────────────────────────────────────
+window.api
+  .getActivePrompt()
+  .then((p) => p && (promptChipEl.textContent = p.name))
+  .catch(() => {});
+window.api.onPromptActive((p) => {
+  promptChipEl.textContent = p.name;
+});
+window.api.onPromptToast(({ name }) => {
+  promptToastEl.textContent = `Prompt mode: ${name}`;
+  promptToastEl.classList.add("show");
+  clearTimeout(window.__promptToastTimer);
+  window.__promptToastTimer = setTimeout(
+    () => promptToastEl.classList.remove("show"),
+    1400,
+  );
+});
 
 // ── Click-through ↔ interactive toggle ───────────────────────────────────────
 let clickThrough = true;

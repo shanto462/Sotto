@@ -1,53 +1,87 @@
-/* Sotto design tokens — shared by overlay, onboarding, and settings windows. */
+/* Sotto design tokens — shared by overlay, onboarding, settings.
+   Three themes: dark (default), light, auto (follows prefers-color-scheme).
+   Apply via <html data-theme="dark|light|auto">. */
+
+:root,
+:root[data-theme="dark"] {
+  --color-bg:            #15181f;
+  --color-bg-glass:      rgba(20, 22, 28, 0.92);
+  --color-surface:       #1c2028;
+  --color-surface-2:     #242832;
+  --color-border:        rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-text:          #e9ecf2;
+  --color-text-dim:      #b8bcc4;
+  --color-muted:         #8b8f99;
+  --color-accent:        #7aa2ff;
+  --color-accent-hover:  #92b4ff;
+  --color-success:       #4ade80;
+  --color-warning:       #fbbf24;
+  --color-danger:        #ef4444;
+  --color-input-bg:      rgba(255, 255, 255, 0.04);
+  --color-input-border:  rgba(255, 255, 255, 0.12);
+  --color-input-focus:   rgba(122, 162, 255, 0.5);
+  --color-pill-bg:       rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] {
+  --color-bg:            #f5f6f8;
+  --color-bg-glass:      rgba(248, 249, 252, 0.94);
+  --color-surface:       #ffffff;
+  --color-surface-2:     #f1f3f7;
+  --color-border:        rgba(0, 0, 0, 0.07);
+  --color-border-strong: rgba(0, 0, 0, 0.16);
+  --color-text:          #1a1d23;
+  --color-text-dim:      #3b414d;
+  --color-muted:         #71757f;
+  --color-accent:        #3b6df0;
+  --color-accent-hover:  #2a5cdf;
+  --color-success:       #19a25b;
+  --color-warning:       #b97900;
+  --color-danger:        #c92a2a;
+  --color-input-bg:      #ffffff;
+  --color-input-border:  rgba(0, 0, 0, 0.14);
+  --color-input-focus:   rgba(59, 109, 240, 0.4);
+  --color-pill-bg:       rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    --color-bg:            #f5f6f8;
+    --color-bg-glass:      rgba(248, 249, 252, 0.94);
+    --color-surface:       #ffffff;
+    --color-surface-2:     #f1f3f7;
+    --color-border:        rgba(0, 0, 0, 0.07);
+    --color-border-strong: rgba(0, 0, 0, 0.16);
+    --color-text:          #1a1d23;
+    --color-text-dim:      #3b414d;
+    --color-muted:         #71757f;
+    --color-accent:        #3b6df0;
+    --color-accent-hover:  #2a5cdf;
+    --color-input-bg:      #ffffff;
+    --color-input-border:  rgba(0, 0, 0, 0.14);
+    --color-input-focus:   rgba(59, 109, 240, 0.4);
+    --color-pill-bg:       rgba(0, 0, 0, 0.05);
+  }
+}
+
 :root {
-  /* Color */
-  --color-bg:           rgba(20, 22, 28, 1);
-  --color-bg-glass:     rgba(20, 22, 28, 0.92);
-  --color-surface:      rgba(28, 32, 40, 1);
-  --color-surface-2:    rgba(36, 40, 50, 1);
-  --color-border:       rgba(255, 255, 255, 0.08);
-  --color-border-strong:rgba(255, 255, 255, 0.16);
-  --color-text:         #e9ecf2;
-  --color-text-dim:     #b8bcc4;
-  --color-muted:        #8b8f99;
-  --color-accent:       #7aa2ff;
-  --color-accent-hover: #92b4ff;
-  --color-success:      #4ade80;
-  --color-warning:      #fbbf24;
-  --color-danger:       #ef4444;
-
-  --color-input-bg:     rgba(255, 255, 255, 0.04);
-  --color-input-border: rgba(255, 255, 255, 0.12);
-  --color-input-focus:  rgba(122, 162, 255, 0.5);
-
   /* Radius */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-pill: 999px;
 
-  /* Spacing scale */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-7: 32px;
-  --sp-8: 40px;
+  /* Spacing */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 40px;
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
                "Segoe UI Variable", "Segoe UI", "Inter", system-ui, sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-
-  --text-xs:  11px;
-  --text-sm:  12px;
-  --text-md:  13px;
-  --text-base:14px;
-  --text-lg:  16px;
-  --text-xl:  20px;
-  --text-2xl: 24px;
+  --text-xs: 11px;  --text-sm: 12px;  --text-md: 13px;
+  --text-base: 14px; --text-lg: 16px; --text-xl: 20px; --text-2xl: 24px;
 
   /* Motion */
   --duration-fast: 120ms;
@@ -102,18 +136,22 @@ button, input, textarea, select { font: inherit; color: inherit; }
   gap: 6px;
   white-space: nowrap;
 }
-.btn:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--color-border-strong); }
+.btn:hover { background: var(--color-pill-bg); border-color: var(--color-border-strong); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.btn-primary {
   background: var(--color-accent);
   border-color: transparent;
-  color: #08111f;
+  color: #fff;
   font-weight: 600;
+}
+:root[data-theme="dark"] .btn.btn-primary,
+:root[data-theme="auto"] .btn.btn-primary {
+  color: #08111f;
 }
 .btn.btn-primary:hover { background: var(--color-accent-hover); }
 .btn.btn-ghost { background: transparent; border-color: transparent; }
-.btn.btn-ghost:hover { background: rgba(255, 255, 255, 0.06); }
+.btn.btn-ghost:hover { background: var(--color-pill-bg); }
 .btn.btn-link { background: none; border: none; color: var(--color-accent); padding: 4px 6px; }
 .btn.btn-link:hover { text-decoration: underline; }
 
@@ -163,23 +201,21 @@ kbd {
   display: inline-block;
   padding: 1px 6px;
   font: 11px/1.4 var(--font-mono);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-pill-bg);
   border: 1px solid var(--color-border);
   border-radius: 4px;
   color: var(--color-text);
   vertical-align: 1px;
 }
 
-/* Scrollbars (webkit) */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(127, 127, 127, 0.25);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); }
+::-webkit-scrollbar-thumb:hover { background: rgba(127, 127, 127, 0.45); }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* Spinner */
 .spinner {
   width: 14px;
   height: 14px;

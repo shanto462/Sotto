@@ -17,4 +17,9 @@ contextBridge.exposeInMainWorld("api", {
   reRunOnboarding: () => ipcRenderer.send("onboarding:re-run"),
   onTabOpen: (cb) =>
     ipcRenderer.on("settings:open-tab", (_e, tab) => cb(tab)),
+  getTheme: () => ipcRenderer.invoke("theme:get"),
+  onThemeChange: (cb) =>
+    ipcRenderer.on("theme:changed", (_e, theme) => cb(theme)),
+  listPrompts: () => ipcRenderer.invoke("prompts:list"),
+  selectPrompt: (id) => ipcRenderer.send("prompts:select", id),
 });
