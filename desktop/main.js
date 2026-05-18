@@ -1,6 +1,7 @@
 import {
   app,
   clipboard,
+  desktopCapturer,
   dialog,
   ipcMain,
   Notification,
@@ -339,6 +340,55 @@ function openSystemSettings(pane) {
   );
 }
 
+/**
+ * Trigger the native permission prompt for the given kind. macOS-specific;
+ * on Windows we simply report granted.
+ *
+ * Behavior per kind:
+ *  - microphone   → askForMediaAccess; returns immediately with the user's choice.
+ *  - screen       → triggers the system prompt by attempting desktopCapturer.
+ *                   The user is sent to System Settings → Screen Recording; the
+ *                   change requires the app to restart before it takes effect.
+ *  - accessibility → isTrustedAccessibilityClient(true) shows the native dialog
+ *                    and offers to open System Settings.
+ */
+async function requestPermission(kind) {
+  if (!isMac) return { ok: true, granted: true, requiresRestart: false };
+
+  if (kind === "microphone") {
+    const granted = await systemPreferences.askForMediaAccess("microphone");
+    return { ok: true, granted, requiresRestart: false };
+  }
+
+  if (kind === "screen") {
+    try {
+      // Touching the screen-capture API surfaces the macOS prompt on first use.
+      await desktopCapturer.getSources({
+        types: ["screen"],
+        thumbnailSize: { width: 1, height: 1 },
+      });
+    } catch {
+      // Some Electron versions throw when status is denied; swallow — the
+      // status check below is the source of truth.
+    }
+    // Also open the pane so the user can toggle the checkbox if needed.
+    openSystemSettings("screen");
+    const status = systemPreferences.getMediaAccessStatus("screen");
+    return {
+      ok: true,
+      granted: status === "granted",
+      requiresRestart: true,
+    };
+  }
+
+  if (kind === "accessibility") {
+    const granted = systemPreferences.isTrustedAccessibilityClient(true);
+    return { ok: true, granted, requiresRestart: false };
+  }
+
+  return { ok: false, error: `Unknown permission kind: ${kind}` };
+}
+
 // ── Secret validation (live ping against provider APIs) ──────────────────────
 async function testAnthropicKey(key) {
   try {
@@ -417,9 +467,16 @@ function registerIPC() {
 
   // Permissions
   ipcMain.handle("permission:check", () => getPermissionStatus());
+  ipcMain.handle("permission:request", (_e, { kind }) =>
+    requestPermission(kind),
+  );
   ipcMain.on("permission:open-system-settings", (_e, pane) =>
     openSystemSettings(pane),
   );
+  ipcMain.on("app:restart", () => {
+    app.relaunch();
+    app.exit(0);
+  });
 
   // Extension
   ipcMain.handle("extension:info", () => ({ path: EXTENSION_DIR }));

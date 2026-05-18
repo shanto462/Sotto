@@ -7,8 +7,11 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("secret:save", { service, value }),
   getSecretInfo: () => ipcRenderer.invoke("secret:info"),
   checkPermissions: () => ipcRenderer.invoke("permission:check"),
+  requestPermission: (kind) =>
+    ipcRenderer.invoke("permission:request", { kind }),
   openSystemSettings: (pane) =>
     ipcRenderer.send("permission:open-system-settings", pane),
+  restartApp: () => ipcRenderer.send("app:restart"),
   getExtensionInfo: () => ipcRenderer.invoke("extension:info"),
   isExtensionConnected: () => ipcRenderer.invoke("extension:is-connected"),
   openExtensionFolder: () => ipcRenderer.send("extension:open-folder"),

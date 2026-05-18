@@ -192,17 +192,45 @@ body {
   justify-content: center;
   flex-shrink: 0;
 }
-.perm-item.granted .perm-icon { background: var(--color-success); }
-.perm-item.granted .perm-icon::after { content: "✓"; }
-.perm-item.granted .perm-icon { font-size: 0; }
-.perm-item.granted .perm-icon::after { font-size: 16px; }
-.perm-item.denied .perm-icon { background: var(--color-danger); }
-.perm-item.denied .perm-icon::after { content: "!"; }
-.perm-item.denied .perm-icon { font-size: 0; }
-.perm-item.denied .perm-icon::after { font-size: 16px; }
+.perm-item.granted .perm-icon { background: var(--color-success); font-size: 0; }
+.perm-item.granted .perm-icon::after { content: "✓"; font-size: 16px; }
+.perm-item.denied  .perm-icon { background: var(--color-danger);  font-size: 0; }
+.perm-item.denied  .perm-icon::after { content: "!"; font-size: 16px; }
 .perm-body { flex: 1; min-width: 0; }
 .perm-name { font-weight: 500; margin-bottom: 2px; }
 .perm-desc { font-size: var(--text-sm); color: var(--color-muted); }
+
+.perm-request { min-width: 92px; }
+.perm-item.granted .perm-request {
+  background: transparent;
+  border-color: rgba(74, 222, 128, 0.3);
+  color: var(--color-success);
+  pointer-events: none;
+}
+.perm-item.checking .perm-request {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.perm-tip {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  margin-top: 4px;
+}
+
+.restart-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(122, 162, 255, 0.08);
+  border: 1px solid rgba(122, 162, 255, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+.restart-banner > span { flex: 1; }
 
 /* Extension step */
 .ext-status {

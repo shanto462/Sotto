@@ -126,13 +126,39 @@ function setPerm(name, status) {
   const el = $(`.perm-item[data-perm="${name}"]`);
   if (!el) return;
   el.classList.remove("granted", "denied");
-  if (status === "granted") el.classList.add("granted");
-  else if (status === "denied") el.classList.add("denied");
+  const btn = el.querySelector(".perm-request");
+  if (status === "granted") {
+    el.classList.add("granted");
+    if (btn) btn.textContent = "✓ Granted";
+  } else {
+    if (status === "denied") el.classList.add("denied");
+    if (btn) btn.textContent = "Request";
+  }
 }
 
-$$(".perm-open").forEach((btn) => {
-  btn.addEventListener("click", () => window.api.openSystemSettings(btn.dataset.pane));
+$$(".perm-request").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const item = btn.closest(".perm-item");
+    const kind = item?.dataset.kind;
+    if (!kind || item.classList.contains("granted")) return;
+
+    item.classList.add("checking");
+    btn.textContent = "Requesting…";
+    try {
+      const res = await window.api.requestPermission(kind);
+      if (res?.requiresRestart) {
+        $("#perm-restart-banner").hidden = false;
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      item.classList.remove("checking");
+      await refreshPermissions();
+    }
+  });
 });
+
+$("#perm-restart")?.addEventListener("click", () => window.api.restartApp());
 
 // ── Step 4: extension ────────────────────────────────────────────────────────
 async function hydrateExtensionStep() {

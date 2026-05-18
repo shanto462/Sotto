@@ -85,34 +85,39 @@
         </div>
 
         <ul class="perm-list" id="permissions">
-          <li class="perm-item" data-perm="screen">
+          <li class="perm-item" data-perm="screen" data-kind="screen">
             <div class="perm-icon">●</div>
             <div class="perm-body">
               <div class="perm-name">Screen Recording</div>
               <div class="perm-desc">Required to capture the active Chrome window.</div>
             </div>
-            <button class="btn btn-ghost perm-open" data-pane="screen">Open Settings</button>
+            <button class="btn perm-request">Request</button>
           </li>
-          <li class="perm-item" data-perm="mic">
+          <li class="perm-item" data-perm="mic" data-kind="microphone">
             <div class="perm-icon">●</div>
             <div class="perm-body">
               <div class="perm-name">Microphone</div>
               <div class="perm-desc">Needed only for the voice trigger (Ctrl+Shift+V).</div>
             </div>
-            <button class="btn btn-ghost perm-open" data-pane="microphone">Open Settings</button>
+            <button class="btn perm-request">Request</button>
           </li>
-          <li class="perm-item" data-perm="accessibility">
+          <li class="perm-item" data-perm="accessibility" data-kind="accessibility">
             <div class="perm-icon">●</div>
             <div class="perm-body">
               <div class="perm-name">Accessibility (macOS only)</div>
               <div class="perm-desc">Lets Ctrl+B toggle the overlay from any app.</div>
             </div>
-            <button class="btn btn-ghost perm-open" data-pane="accessibility">Open Settings</button>
+            <button class="btn perm-request">Request</button>
           </li>
         </ul>
 
+        <div id="perm-restart-banner" class="restart-banner" hidden>
+          <span>↻ Restart required for screen recording permission to take effect.</span>
+          <button class="btn btn-primary" id="perm-restart">Restart Sotto</button>
+        </div>
+
         <p class="dim sm">
-          You can skip and grant later from System Settings — the tray icon will warn you
+          You can skip and grant later from the tray — the icon will warn you
           until everything's in place.
         </p>
       </section>
