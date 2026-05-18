@@ -11,6 +11,7 @@ let tray = null;
 let state = "idle"; // "idle" | "busy" | "warn"
 let cbs = {};
 let refreshInterval = null;
+let recentHistory = [];
 
 export function createTray(callbacks) {
   cbs = callbacks || {};
@@ -34,6 +35,11 @@ export function setTrayState(next) {
   if (next === state) return;
   state = next;
   tray?.setImage(nativeImage.createFromPath(iconFor(state)));
+  rebuildMenu();
+}
+
+export function setTrayHistory(items) {
+  recentHistory = Array.isArray(items) ? items : [];
   rebuildMenu();
 }
 
@@ -78,6 +84,8 @@ function rebuildMenu() {
       click: () => cbs.onToggleOverlay?.(),
     },
     { type: "separator" },
+    historyMenu(),
+    { type: "separator" },
     {
       label: "Preferences…",
       accelerator: "CommandOrControl+,",
@@ -100,4 +108,33 @@ function rebuildMenu() {
   ];
   tray.setContextMenu(Menu.buildFromTemplate(items));
   tray.setToolTip(statusLabel());
+}
+
+function historyMenu() {
+  if (recentHistory.length === 0) {
+    return { label: "History  (empty)", enabled: false };
+  }
+  const items = recentHistory.map((h) => ({
+    label: `${formatTime(h.timestamp)}  ${truncate(h.question, 48)}`,
+    click: () => cbs.onHistorySelect?.(h.id),
+  }));
+  items.push({ type: "separator" });
+  items.push({
+    label: "Clear history",
+    click: () => cbs.onClearHistory?.(),
+  });
+  return {
+    label: `History  (${recentHistory.length})`,
+    submenu: items,
+  };
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function truncate(s, n) {
+  s = String(s || "").replace(/\s+/g, " ").trim();
+  return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }

@@ -58,6 +58,21 @@ export function positionOverChrome(win, bounds) {
 
 export function showOverlay(win, isMac) {
   if (!win) return;
-  if (!win.isVisible()) win.showInactive();
+  if (!win.isVisible()) {
+    win.setOpacity(0);
+    win.showInactive();
+    fadeIn(win);
+  }
   win.setAlwaysOnTop(true, isMac ? "screen-saver" : undefined);
+}
+
+function fadeIn(win, durationMs = 160) {
+  const start = Date.now();
+  const tick = () => {
+    if (!win || win.isDestroyed()) return;
+    const t = Math.min(1, (Date.now() - start) / durationMs);
+    win.setOpacity(t * (2 - t)); // ease-out quad
+    if (t < 1) setTimeout(tick, 16);
+  };
+  tick();
 }

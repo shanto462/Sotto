@@ -43,6 +43,16 @@
         background: var(--color-accent);
         box-shadow: 0 0 8px rgba(122, 162, 255, 0.6);
       }
+      #strip .source-chip {
+        font-size: 10px;
+        padding: 1px 7px;
+        border-radius: var(--radius-pill);
+        background: rgba(122, 162, 255, 0.16);
+        color: var(--color-accent);
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+      }
       #strip .hint {
         margin-left: auto;
         text-transform: none;
@@ -52,11 +62,78 @@
         opacity: 0.65;
       }
 
+      #body {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      #rail {
+        width: 152px;
+        flex-shrink: 0;
+        background: rgba(0, 0, 0, 0.18);
+        border-right: 1px solid var(--color-border);
+        overflow-y: auto;
+        transition: width var(--duration-med) var(--easing),
+                    border-color var(--duration-med) var(--easing);
+      }
+      #rail.collapsed {
+        width: 0;
+        border-right-color: transparent;
+        overflow: hidden;
+      }
+      .rail-header {
+        padding: 8px 12px 4px;
+        font-size: 10.5px;
+        color: var(--color-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+      }
+      #rail-list { padding: 4px; }
+      .rail-item {
+        padding: 6px 8px;
+        margin-bottom: 2px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--easing);
+      }
+      .rail-item:hover { background: rgba(255, 255, 255, 0.06); }
+      .rail-time {
+        font-size: 10px;
+        color: var(--color-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .rail-q {
+        font-size: 11.5px;
+        color: var(--color-text-dim);
+        line-height: 1.35;
+        margin-top: 2px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .rail-icon {
+        display: inline-block;
+        margin-right: 4px;
+        color: var(--color-accent);
+        font-size: 10px;
+      }
+      .rail-empty {
+        padding: 16px 14px;
+        font-size: 11px;
+        color: var(--color-muted);
+        text-align: center;
+      }
+
       #content {
         flex: 1;
         overflow-y: auto;
         padding: 14px 18px 12px;
         scroll-behavior: smooth;
+        min-width: 0;
       }
       #content::-webkit-scrollbar { width: 6px; }
 
@@ -67,6 +144,13 @@
         color: var(--color-muted);
         border-top: 1px solid var(--color-border);
         font-feature-settings: "tnum";
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #footer .replayed {
+        color: var(--color-accent);
+        opacity: 0.8;
       }
 
       #empty {
@@ -74,7 +158,7 @@
         font-size: var(--text-md);
         text-align: center;
         padding: 36px 20px;
-        line-height: 1.6;
+        line-height: 1.7;
       }
 
       .status {
@@ -85,14 +169,6 @@
         padding: 8px 0;
       }
       .status-error { color: #ff9090; }
-      .spinner {
-        width: 12px;
-        height: 12px;
-        border: 2px solid rgba(122, 162, 255, 0.3);
-        border-top-color: var(--color-accent);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
 
       /* Voice recording */
       .voice-rec {
@@ -218,15 +294,23 @@
       <div id="strip">
         <span class="dot"></span>
         <span>Sotto</span>
-        <span class="hint">Ctrl+B hides · hover to scroll</span>
+        <span class="source-chip" id="source-chip" hidden></span>
+        <span class="hint">Ctrl+B hide · Ctrl+H history · Ctrl+L clear</span>
       </div>
-      <div id="content">
-        <div id="empty">
-          Press <kbd>Ctrl+M</kbd> in Chrome to ask Claude.<br />
-          Press <kbd>Ctrl+B</kbd> to hide / show this overlay.<br />
-          <span style="font-size: 11px; opacity: 0.7;">
-            Click-through · scroll on hover · hidden from screen capture
-          </span>
+      <div id="body">
+        <aside id="rail" class="collapsed">
+          <div class="rail-header">History</div>
+          <div id="rail-list"></div>
+        </aside>
+        <div id="content">
+          <div id="empty">
+            Press <kbd>Ctrl+M</kbd> in Chrome to ask Claude.<br />
+            Press <kbd>Ctrl+Shift+V</kbd> anywhere to ask by voice.<br />
+            Press <kbd>Ctrl+B</kbd> to hide / show.<br />
+            <span style="font-size: 11px; opacity: 0.7;">
+              Click-through · scroll on hover · hidden from screen capture
+            </span>
+          </div>
         </div>
       </div>
       <div id="footer"></div>

@@ -1,16 +1,17 @@
 const contentEl = document.getElementById("content");
 const footerEl = document.getElementById("footer");
+const railEl = document.getElementById("rail");
+const railListEl = document.getElementById("rail-list");
+const sourceChipEl = document.getElementById("source-chip");
 
 // ── Click-through ↔ interactive toggle ───────────────────────────────────────
 let clickThrough = true;
-
 function setClickThrough(value) {
   if (value === clickThrough) return;
   clickThrough = value;
   if (value) window.api.setIgnoreMouseEvents(true, { forward: true });
   else window.api.setIgnoreMouseEvents(false);
 }
-
 document.addEventListener("mousemove", () => setClickThrough(false));
 document.addEventListener("mouseleave", () => setClickThrough(true));
 window.addEventListener("blur", () => setClickThrough(true));
@@ -19,6 +20,14 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ── Rendering ────────────────────────────────────────────────────────────────
+const EMPTY_HTML = contentEl.innerHTML;
+
+function renderEmpty() {
+  contentEl.innerHTML = EMPTY_HTML;
+  footerEl.innerHTML = "";
+  setSourceChip(null);
+}
+
 function renderStatus(data) {
   if (data.state === "pending") {
     contentEl.innerHTML = `
@@ -27,7 +36,7 @@ function renderStatus(data) {
         <span>Capturing and asking Claude…</span>
       </div>
     `;
-    footerEl.textContent = "";
+    footerEl.innerHTML = "";
   } else if (data.state === "transcribing") {
     contentEl.innerHTML = `
       <div class="status">
@@ -35,7 +44,7 @@ function renderStatus(data) {
         <span>Transcribing…</span>
       </div>
     `;
-    footerEl.textContent = "";
+    footerEl.innerHTML = "";
   } else if (data.state === "asking") {
     contentEl.innerHTML = `
       <div class="status">
@@ -44,34 +53,42 @@ function renderStatus(data) {
       </div>
       ${data.transcript ? `<div class="transcript">"${escapeHtml(data.transcript)}"</div>` : ""}
     `;
-    footerEl.textContent = "";
+    footerEl.innerHTML = "";
   } else if (data.state === "error") {
     contentEl.innerHTML = `
       <div class="status status-error">
         <span>⚠ ${escapeHtml(data.error || "Unknown error")}</span>
       </div>
     `;
-    footerEl.textContent = "";
+    footerEl.innerHTML = "";
   }
 }
 
 function renderAnswer({ html, meta, source }) {
-  const sourceIcon = source === "voice" ? "🎙 " : "";
+  setSourceChip(source);
   const transcript = meta?.transcript
     ? `<div class="transcript">"${escapeHtml(meta.transcript)}"</div>`
     : "";
-  contentEl.innerHTML = `${transcript}<div class="md">${sourceIcon ? `<p class="dim sm">${sourceIcon}voice</p>` : ""}${html}</div>`;
+  contentEl.innerHTML = `${transcript}<div class="md">${html}</div>`;
   contentEl.scrollTop = 0;
-  footerEl.textContent = formatMeta(meta);
+
+  const parts = [];
+  if (meta?.replayed) parts.push(`<span class="replayed">replayed</span>`);
+  if (meta?.inputTokens != null) parts.push(`${meta.inputTokens.toLocaleString()} in`);
+  if (meta?.outputTokens != null) parts.push(`${meta.outputTokens.toLocaleString()} out`);
+  if (meta?.durationMs != null) parts.push(`${(meta.durationMs / 1000).toFixed(1)}s`);
+  if (meta?.model) parts.push(meta.model);
+  footerEl.innerHTML = parts.join(" · ");
 }
 
-function formatMeta(meta = {}) {
-  const parts = [];
-  if (meta.inputTokens != null) parts.push(`${meta.inputTokens.toLocaleString()} in`);
-  if (meta.outputTokens != null) parts.push(`${meta.outputTokens.toLocaleString()} out`);
-  if (meta.durationMs != null) parts.push(`${(meta.durationMs / 1000).toFixed(1)}s`);
-  if (meta.model) parts.push(meta.model);
-  return parts.join(" · ");
+function setSourceChip(source) {
+  if (!source) {
+    sourceChipEl.hidden = true;
+    sourceChipEl.textContent = "";
+    return;
+  }
+  sourceChipEl.hidden = false;
+  sourceChipEl.textContent = source === "voice" ? "🎙 voice" : "📷 capture";
 }
 
 function escapeHtml(s) {
@@ -80,6 +97,41 @@ function escapeHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
+
+// ── History rail ────────────────────────────────────────────────────────────
+function renderHistory(list) {
+  if (!list || list.length === 0) {
+    railListEl.innerHTML = `<div class="rail-empty">No history yet</div>`;
+    return;
+  }
+  railListEl.innerHTML = list
+    .map(
+      (h) => `
+      <div class="rail-item" data-id="${h.id}">
+        <div class="rail-time">${formatTime(h.timestamp)}</div>
+        <div class="rail-q"><span class="rail-icon">${h.source === "voice" ? "🎙" : "📷"}</span>${escapeHtml(h.question || "(no preview)")}</div>
+      </div>
+    `,
+    )
+    .join("");
+  railListEl.querySelectorAll(".rail-item").forEach((el) => {
+    el.addEventListener("click", () => window.api.selectHistory(el.dataset.id));
+  });
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function toggleRail() {
+  railEl.classList.toggle("collapsed");
+}
+
+// Initial load
+window.api.getHistoryList().then(renderHistory).catch(() => {});
 
 // ── Voice recording ─────────────────────────────────────────────────────────
 let mediaRecorder = null;
@@ -96,8 +148,7 @@ window.api.onVoiceToggle(async () => {
     stopRecording();
     return;
   }
-  // Ignore toggle while we're mid-transcription
-  if (audioChunks.length > 0) return;
+  if (audioChunks.length > 0) return; // mid-transcription, ignore
   await startRecording();
 });
 
@@ -112,7 +163,6 @@ async function startRecording() {
     `;
     return;
   }
-
   audioChunks = [];
   const mime = pickAudioMime();
   mediaRecorder = mime
@@ -125,12 +175,12 @@ async function startRecording() {
   mediaRecorder.onstop = async () => {
     audioStream?.getTracks().forEach((t) => t.stop());
     teardownWaveform();
-    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+    const blob = new Blob(audioChunks, {
+      type: mediaRecorder.mimeType || "audio/webm",
+    });
     const buf = await blob.arrayBuffer();
     window.api.sendAudio(buf);
-    // Audio chunks remain set until we render an answer/error, gating re-entrance.
   };
-
   mediaRecorder.start();
   recStartedAt = Date.now();
   renderRecordingUI();
@@ -139,9 +189,7 @@ async function startRecording() {
 }
 
 function stopRecording() {
-  if (mediaRecorder?.state === "recording") {
-    mediaRecorder.stop();
-  }
+  if (mediaRecorder?.state === "recording") mediaRecorder.stop();
   stopTimer();
 }
 
@@ -151,7 +199,6 @@ function pickAudioMime() {
   return null;
 }
 
-// ── Recording UI ────────────────────────────────────────────────────────────
 function renderRecordingUI() {
   contentEl.innerHTML = `
     <div class="voice-rec">
@@ -189,8 +236,6 @@ function startWaveform() {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     ctx.clearRect(0, 0, w, h);
-
-    // Bars sampled across the buffer
     const bars = 48;
     const step = Math.floor(buf.length / bars);
     const barWidth = (w - bars * 2) / bars;
@@ -241,3 +286,6 @@ window.api.onAnswer((data) => {
   audioChunks = []; // unblock further voice toggles
   renderAnswer(data);
 });
+window.api.onHistoryUpdate(renderHistory);
+window.api.onHistoryToggle(toggleRail);
+window.api.onContentClear(renderEmpty);

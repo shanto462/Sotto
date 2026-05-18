@@ -6,10 +6,18 @@ export {
   lastSeenAgoMs,
   recordHeartbeat,
 } from "./extension-monitor.js";
+export {
+  addHistoryEntry,
+  clearHistory,
+  getHistoryEntry,
+  initHistory,
+  listHistory,
+  setHistoryPersist,
+  subscribeHistory,
+} from "./history.js";
 export { logger } from "./logger.js";
 export { queryActiveChromeWindow } from "./os.js";
 export { SYSTEM_PROMPT, VOICE_SYSTEM_PROMPT } from "./prompt.js";
-export { transcribeAudio } from "./voice.js";
 export {
   getSecret,
   hasSecret,
@@ -21,3 +29,4 @@ export {
   resetSettings,
   saveSettings,
 } from "./settings.js";
+export { transcribeAudio } from "./voice.js";

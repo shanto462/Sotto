@@ -15,19 +15,26 @@ import { marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 
 import {
+  addHistoryEntry,
   askClaude,
   askClaudeText,
   captureChromeWindowByTitle,
+  clearHistory,
   DEFAULT_PORT,
+  getHistoryEntry,
   hasSecret,
   hydrateProcessEnv,
+  initHistory,
   isExtensionAlive,
+  listHistory,
   loadSettings,
   logger,
   queryActiveChromeWindow,
   resetSettings,
   saveSettings,
+  setHistoryPersist,
   setSecret,
+  subscribeHistory,
   transcribeAudio,
 } from "../src/index.js";
 import { createSolverServer } from "../src/server.js";
@@ -42,7 +49,12 @@ import {
 } from "./windows/overlay.js";
 import { openSettingsWindow } from "./windows/settings.js";
 import { registerShortcuts, unregisterAll } from "./shortcuts.js";
-import { createTray, destroyTray, setTrayState } from "./tray.js";
+import {
+  createTray,
+  destroyTray,
+  setTrayHistory,
+  setTrayState,
+} from "./tray.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -148,10 +160,18 @@ async function handleAsk(log) {
     showOverlay(ensureOverlay(), isMac);
     overlayWin?.webContents.send("status", { state: "pending" });
 
-    const { png } = await captureChromeWindowByTitle(title, log);
+    const { png, name } = await captureChromeWindowByTitle(title, log);
     const { text, meta } = await askClaude(png, log);
     const html = await marked.parse(text);
     overlayWin?.webContents.send("answer", { html, text, meta });
+
+    addHistoryEntry({
+      source: "text",
+      question: name ? `Chrome: ${name}` : "Chrome window",
+      text,
+      html,
+      meta,
+    });
 
     return {
       ok: true,
@@ -178,6 +198,13 @@ function toggleOverlay() {
     showOverlay(overlayWin, isMac);
     logger.info("overlay shown");
   }
+}
+
+function nudgeOverlay(dx, dy) {
+  if (!overlayWin) return;
+  const [x, y] = overlayWin.getPosition();
+  overlayWin.setPosition(x + dx, y + dy, true);
+  if (!overlayWin.isVisible()) showOverlay(overlayWin, isMac);
 }
 
 // ── Voice orchestration ──────────────────────────────────────────────────────
@@ -231,6 +258,14 @@ async function handleVoiceAudio(arrayBuffer) {
       text,
       meta: { ...meta, transcript },
       source: "voice",
+    });
+
+    addHistoryEntry({
+      source: "voice",
+      question: transcript,
+      text,
+      html,
+      meta: { ...meta, transcript },
     });
   } catch (err) {
     const msg = err?.message ?? String(err);
@@ -311,6 +346,7 @@ function registerIPC() {
   ipcMain.handle("settings:save", (_e, patch) => {
     const next = saveSettings(patch);
     if ("autoLaunch" in (patch || {})) applyAutoLaunch(next.autoLaunch);
+    if ("persistHistory" in (patch || {})) setHistoryPersist(next.persistHistory);
     return next;
   });
   ipcMain.handle("settings:reset", () => resetSettings());
@@ -386,6 +422,22 @@ function registerIPC() {
   ipcMain.on("voice:audio", (_e, arrayBuffer) => {
     handleVoiceAudio(arrayBuffer);
   });
+
+  // History
+  ipcMain.handle("history:list", () => listHistory());
+  ipcMain.handle("history:get", (_e, id) => getHistoryEntry(id));
+  ipcMain.on("history:clear", () => clearHistory());
+  ipcMain.on("history:select", (_e, id) => {
+    const entry = getHistoryEntry(id);
+    if (!entry) return;
+    showOverlay(ensureOverlay(), isMac);
+    overlayWin?.webContents.send("answer", {
+      html: entry.html,
+      text: entry.text,
+      meta: { ...(entry.meta || {}), replayed: true },
+      source: entry.source,
+    });
+  });
 }
 
 function notify(title, body) {
@@ -410,21 +462,40 @@ async function startRuntime() {
 
   const settings = loadSettings();
   applyAutoLaunch(settings.autoLaunch);
+  initHistory({ persist: settings.persistHistory });
 
+  // Push history to overlay + rebuild tray on every change
+  subscribeHistory((list) => {
+    overlayWin?.webContents.send("history:update", list);
+    setTrayHistory(list.slice(0, 10));
+  });
+
+  const sh = settings.shortcuts;
   const { failures } = registerShortcuts({
     ask: {
-      accelerator: settings.shortcuts.ask,
-      fn: () =>
-        handleAsk(logger.child({ trigger: "shortcut" })).catch(() => {}),
+      accelerator: sh.ask,
+      fn: () => handleAsk(logger.child({ trigger: "shortcut" })).catch(() => {}),
     },
     voice: {
-      accelerator: settings.shortcuts.voice,
+      accelerator: sh.voice,
       fn: handleVoiceToggle,
     },
     toggle: {
-      accelerator: settings.shortcuts.toggle,
+      accelerator: sh.toggle,
       fn: toggleOverlay,
     },
+    history: {
+      accelerator: sh.history || "Control+H",
+      fn: () => overlayWin?.webContents.send("history:toggle"),
+    },
+    clear: {
+      accelerator: sh.clear || "Control+L",
+      fn: () => overlayWin?.webContents.send("content:clear"),
+    },
+    nudgeUp: { accelerator: "Control+Up", fn: () => nudgeOverlay(0, -40) },
+    nudgeDown: { accelerator: "Control+Down", fn: () => nudgeOverlay(0, 40) },
+    nudgeLeft: { accelerator: "Control+Left", fn: () => nudgeOverlay(-40, 0) },
+    nudgeRight: { accelerator: "Control+Right", fn: () => nudgeOverlay(40, 0) },
   });
   for (const f of failures) {
     logger.warn(f, "global shortcut registration failed");
@@ -464,6 +535,18 @@ app.whenReady().then(async () => {
     onToggleOverlay: toggleOverlay,
     onOpenSettings: () => openSettings(),
     onOpenAbout: () => openSettings("about"),
+    onHistorySelect: (id) => {
+      const entry = getHistoryEntry(id);
+      if (!entry) return;
+      showOverlay(ensureOverlay(), isMac);
+      overlayWin?.webContents.send("answer", {
+        html: entry.html,
+        text: entry.text,
+        meta: { ...(entry.meta || {}), replayed: true },
+        source: entry.source,
+      });
+    },
+    onClearHistory: () => clearHistory(),
     onQuit: () => app.quit(),
   });
 
