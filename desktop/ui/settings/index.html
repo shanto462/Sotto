@@ -105,7 +105,7 @@
             <code style="font-family: var(--font-mono)">settings.json</code> in your userData folder.
           </p>
           <div class="default-list">
-            <div class="kv"><kbd>Ctrl+M</kbd><span>Ask Claude (Chrome extension)</span></div>
+            <div class="kv"><kbd>Ctrl+M</kbd><span>Ask AI (Chrome extension)</span></div>
             <div class="kv"><kbd>Ctrl+Shift+V</kbd><span>Voice toggle (start / stop recording)</span></div>
             <div class="kv"><kbd>Ctrl+B</kbd><span>Show / hide overlay</span></div>
             <div class="kv"><kbd>Ctrl+H</kbd><span>Toggle history rail</span></div>
@@ -173,6 +173,19 @@
           <h2>API & Models</h2>
 
           <div class="group">
+            <h3 class="group-title">LLM Provider</h3>
+            <div class="row">
+              <label class="row-label">Answer source</label>
+              <div class="seg" data-setting="llmProvider">
+                <button class="seg-btn" data-value="auto">Auto</button>
+                <button class="seg-btn" data-value="claude">Claude</button>
+                <button class="seg-btn" data-value="openai">OpenAI</button>
+              </div>
+            </div>
+            <p class="row-hint" style="margin-top: var(--sp-2)">Auto uses Claude when available and falls back to OpenAI (GPT-4o) when rate-limited. Voice transcription always uses OpenAI Whisper.</p>
+          </div>
+
+          <div class="group">
             <h3 class="group-title">Anthropic</h3>
             <div class="field">
               <div class="field-label">
@@ -188,7 +201,7 @@
           </div>
 
           <div class="group">
-            <h3 class="group-title">OpenAI (voice)</h3>
+            <h3 class="group-title">OpenAI</h3>
             <div class="field">
               <div class="field-label">
                 <label for="key-openai-set">API key</label>
