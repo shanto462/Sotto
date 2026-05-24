@@ -51,7 +51,7 @@ body { display: flex; flex-direction: column; }
   transition: background var(--duration-fast) var(--easing),
               color    var(--duration-fast) var(--easing);
 }
-.tab:hover { background: rgba(255, 255, 255, 0.04); color: var(--color-text); }
+.tab:hover { background: var(--color-pill-bg); color: var(--color-text); }
 .tab.active {
   background: var(--color-surface-2);
   color: var(--color-text);
@@ -116,8 +116,12 @@ body { display: flex; flex-direction: column; }
 }
 .seg-btn:hover { color: var(--color-text); }
 .seg-btn.active {
-  background: var(--color-surface-2);
-  color: var(--color-text);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+/* Dark theme convention: very dark text on the accent blue (same as btn-primary) */
+:root[data-theme="dark"] .seg-btn.active {
+  color: #08111f;
 }
 
 /* Slider */
@@ -319,3 +323,39 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
 
 .sm { font-size: var(--text-sm); }
 .row.gap { gap: var(--sp-2); }
+
+/* ── Light-theme fixes ───────────────────────────────────────────────────────
+   Dark mode bakes many transparent-white values that become invisible on a
+   white/near-white surface. These overrides restore contrast in light mode.
+   The "auto" block is wrapped in a prefers-color-scheme media query so it
+   only fires when the OS is actually light.                                  */
+
+/* Segmented control: visible gray pill container + crisp white active button */
+:root[data-theme="light"] .seg {
+  background: #e2e6ed;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Slider track: replace invisible white track with a visible mid-gray */
+:root[data-theme="light"] input[type="range"] {
+  background: #c8cdd6;
+}
+
+/* Active sidebar tab: white card is much clearer than surface-2 on bg */
+:root[data-theme="light"] .tab.active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
+}
+
+/* Buttons: slightly stronger border so they don't blend into white surface */
+:root[data-theme="light"] .btn:not(.btn-primary):not(.btn-ghost):not(.btn-link) {
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+/* Same fixes for "auto" when OS preference is light */
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] .seg { background: #e2e6ed; border-color: rgba(0, 0, 0, 0.12); }
+  :root[data-theme="auto"] input[type="range"] { background: #c8cdd6; }
+  :root[data-theme="auto"] .tab.active { background: #ffffff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10); }
+  :root[data-theme="auto"] .btn:not(.btn-primary):not(.btn-ghost):not(.btn-link) { border-color: rgba(0, 0, 0, 0.16); }
+}

@@ -26,6 +26,7 @@ const DEFAULTS = {
     history: "Control+H",
     clear: "Control+L",
   },
+  llmProvider: "auto", // "auto" | "claude" | "openai"
   activePromptId: "recap",
   overlay: {
     // null means "use default placement (top-right of primary display, or over

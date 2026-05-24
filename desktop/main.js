@@ -19,6 +19,8 @@ import {
   addHistoryEntry,
   askClaude,
   askClaudeText,
+  askOpenAI,
+  askOpenAIText,
   captureChromeWindowByTitle,
   clearHistory,
   DEFAULT_PORT,
@@ -189,17 +191,87 @@ function updateDockVisibility() {
   }
 }
 
-// ── Capture + ask orchestration ──────────────────────────────────────────────
-async function handleAsk(log) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    showOverlay(ensureOverlay(), isMac);
-    overlayWin?.webContents.send("status", {
-      state: "error",
-      error: "ANTHROPIC_API_KEY is not set. Open Preferences → API & Models.",
-    });
-    throw new Error("ANTHROPIC_API_KEY missing");
+// ── LLM provider routing ─────────────────────────────────────────────────────
+// Returns true for errors where Claude should fall back to OpenAI in "auto" mode.
+// Covers rate-limit (429) and Anthropic overloaded (529), but NOT quota-exhausted
+// (insufficient_quota) because retrying on OpenAI won't help if that quota is gone too.
+function isRateLimitError(err) {
+  if (err?.code === "insufficient_quota") return false;
+  return err?.status === 429 || err?.status === 529;
+}
+
+async function callLLMVision(png, log, promptBody) {
+  const { llmProvider = "auto" } = loadSettings();
+  const hasClaude = !!process.env.ANTHROPIC_API_KEY;
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+  if (llmProvider === "openai") {
+    if (!hasOpenAI) throw new Error("OPENAI_API_KEY is not set. Open Preferences → API & Models.");
+    return askOpenAI(png, log, promptBody);
   }
 
+  if (llmProvider === "claude") {
+    if (!hasClaude) throw new Error("ANTHROPIC_API_KEY is not set. Open Preferences → API & Models.");
+    return askClaude(png, log, promptBody);
+  }
+
+  // auto: Claude preferred, GPT-4o fallback when rate-limited
+  if (!hasClaude && !hasOpenAI) {
+    throw new Error("No LLM API key configured. Open Preferences → API & Models.");
+  }
+
+  if (hasClaude) {
+    try {
+      return await askClaude(png, log, promptBody);
+    } catch (err) {
+      if (isRateLimitError(err) && hasOpenAI) {
+        log?.warn({ status: err.status }, "Claude rate-limited — falling back to OpenAI");
+        return askOpenAI(png, log, promptBody);
+      }
+      throw err;
+    }
+  }
+
+  return askOpenAI(png, log, promptBody);
+}
+
+async function callLLMText(question, log) {
+  const { llmProvider = "auto" } = loadSettings();
+  const hasClaude = !!process.env.ANTHROPIC_API_KEY;
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+  if (llmProvider === "openai") {
+    if (!hasOpenAI) throw new Error("OPENAI_API_KEY is not set. Open Preferences → API & Models.");
+    return askOpenAIText(question, log);
+  }
+
+  if (llmProvider === "claude") {
+    if (!hasClaude) throw new Error("ANTHROPIC_API_KEY is not set. Open Preferences → API & Models.");
+    return askClaudeText(question, log);
+  }
+
+  // auto
+  if (!hasClaude && !hasOpenAI) {
+    throw new Error("No LLM API key configured. Open Preferences → API & Models.");
+  }
+
+  if (hasClaude) {
+    try {
+      return await askClaudeText(question, log);
+    } catch (err) {
+      if (isRateLimitError(err) && hasOpenAI) {
+        log?.warn({ status: err.status }, "Claude rate-limited — falling back to OpenAI");
+        return askOpenAIText(question, log);
+      }
+      throw err;
+    }
+  }
+
+  return askOpenAIText(question, log);
+}
+
+// ── Capture + ask orchestration ──────────────────────────────────────────────
+async function handleAsk(log) {
   const start = performance.now();
   setTrayState("busy");
   try {
@@ -213,7 +285,7 @@ async function handleAsk(log) {
 
     const { png, name } = await captureChromeWindowByTitle(title, log);
     const prompt = getPromptById(loadSettings().activePromptId);
-    const { text, meta } = await askClaude(png, log, prompt.body);
+    const { text, meta } = await callLLMVision(png, log, prompt.body);
     meta.promptName = prompt.name;
     const html = await marked.parse(text);
     overlayWin?.webContents.send("answer", {
@@ -331,7 +403,7 @@ async function handleVoiceAudio(arrayBuffer) {
       transcript,
     });
 
-    const { text, meta } = await askClaudeText(transcript, log);
+    const { text, meta } = await callLLMText(transcript, log);
     const html = await marked.parse(text);
     overlayWin?.webContents.send("answer", {
       html,

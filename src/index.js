@@ -1,6 +1,7 @@
 export { captureChromeWindowByTitle } from "./capture.js";
 export { askClaude, askClaudeText } from "./claude.js";
-export { DEFAULT_PORT, MAX_TOKENS, MODEL } from "./config.js";
+export { DEFAULT_PORT, MAX_TOKENS, MODEL, OPENAI_LLM_MODEL } from "./config.js";
+export { askOpenAI, askOpenAIText } from "./openai-llm.js";
 export {
   isExtensionAlive,
   lastSeenAgoMs,

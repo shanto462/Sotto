@@ -19,7 +19,7 @@ $$(".tab").forEach((el) => {
 function openTab(name) {
   $$(".tab").forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
   $$(".pane").forEach((p) => (p.hidden = p.dataset.pane !== name));
-  if (name === "api") loadKeyStatuses();
+  if (name === "api") loadApiTab();
   if (name === "voice") loadVoiceTab();
   if (name === "prompts") loadPromptsTab();
   if (name === "extension") loadExtensionStatus();
@@ -47,12 +47,26 @@ async function init() {
   renderGeneral();
 }
 
+// Wire a segmented control: paint the active button + re-paint on click.
+// Without this, the .active class is stuck on whichever button was active at
+// page load, so clicking another option saves the setting but the visual
+// "selected" indicator never moves.
+function wireSeg(setting, currentValue, onChange) {
+  const sel = `.seg[data-setting="${setting}"] .seg-btn`;
+  const paint = (value) =>
+    $$(sel).forEach((x) => x.classList.toggle("active", x.dataset.value === value));
+  paint(currentValue);
+  $$(sel).forEach((b) => {
+    b.onclick = () => {
+      paint(b.dataset.value);
+      onChange(b.dataset.value);
+    };
+  });
+}
+
 function renderGeneral() {
   // Segmented (theme)
-  $$(`.seg[data-setting="theme"] .seg-btn`).forEach((b) => {
-    b.classList.toggle("active", b.dataset.value === settings.theme);
-    b.onclick = () => updateSetting({ theme: b.dataset.value });
-  });
+  wireSeg("theme", settings.theme, (v) => updateSetting({ theme: v }));
 
   // Sliders
   setSlider("opacity", settings.opacity, (v) => `${v}%`);
@@ -144,11 +158,11 @@ async function loadVoiceTab() {
   max.onchange = () =>
     updateSetting({ voice: { maxRecordingSec: Number(max.value) } });
 
-  $$(`.seg[data-setting="voice.whisperModel"] .seg-btn`).forEach((b) => {
-    b.classList.toggle("active", b.dataset.value === (v.whisperModel || "whisper-1"));
-    b.onclick = () =>
-      updateSetting({ voice: { whisperModel: b.dataset.value } });
-  });
+  wireSeg(
+    "voice.whisperModel",
+    v.whisperModel || "whisper-1",
+    (val) => updateSetting({ voice: { whisperModel: val } }),
+  );
 
   // Warn if OpenAI key missing
   const info = await window.api.getSecretInfo();
@@ -157,10 +171,17 @@ async function loadVoiceTab() {
 }
 
 // ── API tab ─────────────────────────────────────────────────────────────────
-async function loadKeyStatuses() {
+async function loadApiTab() {
+  if (!settings) settings = await window.api.getSettings();
   const info = await window.api.getSecretInfo();
   setKeyChip("anthropic-status", info?.anthropic);
   setKeyChip("openai-status", info?.openai);
+
+  wireSeg(
+    "llmProvider",
+    settings.llmProvider ?? "auto",
+    (v) => updateSetting({ llmProvider: v }),
+  );
 }
 
 function setKeyChip(id, present) {

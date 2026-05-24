@@ -138,7 +138,7 @@ async function showToastOnActiveTab(text, kind) {
 // ── Ask trigger ─────────────────────────────────────────────────────────────
 async function runTrigger(source) {
   log(`trigger · source=${source}`);
-  await showToastOnActiveTab("Asking Claude…", "pending");
+  await showToastOnActiveTab("Asking Sotto…", "pending");
   const startedAt = Date.now();
 
   try {
