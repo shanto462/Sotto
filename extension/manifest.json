@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Sotto",
-  "version": "0.5.0",
+  "version": "0.6.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm71/8KFR99elwCAWE6SaolvhkybmoOj7v+fYAp9desnBsPjCbH0wngKCrXS+IWzgf0lRPDUKGjzOv8dPDB7z9zbTUXUb2jEVWi1/l+QLfmk9OsbOu7ZhgH5YI2QwFJFPssVONViyKo9W74dHPpxdvRAV7dyThRpsw+8eAQPzMrSgHEOg5EnnUlQ+/xQDg0/IhxN53OeIAymoxKJOUEHdcb2D3RyujMVNCN7eXvX0ob3M3xhLlccMin8W0umnoDKw5X9djCrLQ6fZI3nc+5GM51Bbau16cvihwRHSkVPT5l65pOzyOCNJ3/rbdfoszObS6S/hhAGbBFsT+v79P9mEsQIDAQAB",
   "description": "Press Ctrl+M in Chrome to ask Sotto about the current page. The answer renders in a hidden overlay (Sotto desktop app must be running).",
   "permissions": ["alarms", "tabs"],
   "host_permissions": [

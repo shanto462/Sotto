@@ -5,15 +5,13 @@ import {
   dialog,
   ipcMain,
   Notification,
+  session,
   shell,
   systemPreferences,
 } from "electron";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import hljs from "highlight.js";
-import { marked } from "marked";
-import { markedHighlight } from "marked-highlight";
 
 import {
   addHistoryEntry,
@@ -33,6 +31,7 @@ import {
   logger,
   PROMPT_PRESETS,
   queryActiveChromeWindow,
+  renderMarkdown,
   resetSettings,
   saveSettings,
   setHistoryPersist,
@@ -51,6 +50,13 @@ import {
   showOverlay,
 } from "./windows/overlay.js";
 import { getSettingsWindow, openSettingsWindow } from "./windows/settings.js";
+import {
+  ASSETS_DIR,
+  getExtensionDir,
+  LICENSE_PATH,
+  PROJECT_ROOT,
+  syncExtensionDir,
+} from "./paths.js";
 import { registerShortcuts, unregisterAll } from "./shortcuts.js";
 import {
   createTray,
@@ -60,9 +66,7 @@ import {
 } from "./tray.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(__dirname, "..");
-const ASSETS = join(PROJECT_ROOT, "assets");
-const EXTENSION_DIR = join(PROJECT_ROOT, "extension");
+const ASSETS = ASSETS_DIR;
 const isMac = process.platform === "darwin";
 
 // ── Single-instance lock ──────────────────────────────────────────────────────
@@ -82,16 +86,38 @@ if (existsSync(envPath)) {
   }
 }
 
-// ── Markdown → HTML pipeline ─────────────────────────────────────────────────
-marked.use(
-  markedHighlight({
-    langPrefix: "hljs language-",
-    highlight(code, lang) {
-      const language = hljs.getLanguage(lang) ? lang : "plaintext";
-      return hljs.highlight(code, { language, ignoreIllegals: true }).value;
-    },
-  }),
-);
+// ── Renderer lockdown ────────────────────────────────────────────────────────
+// Every window loads a local file and must stay on it. Links (for example in
+// a rendered answer) open in the user's browser instead, and only for safe
+// protocols, so file:// or custom-scheme URLs can never launch local programs.
+const EXTERNAL_PROTOCOLS = new Set(["https:", "http:", "mailto:"]);
+
+function openExternalSafe(url) {
+  let parsed;
+  try {
+    parsed = new URL(String(url));
+  } catch {
+    return false;
+  }
+  if (!EXTERNAL_PROTOCOLS.has(parsed.protocol)) {
+    logger.warn({ protocol: parsed.protocol }, "blocked external URL");
+    return false;
+  }
+  shell.openExternal(parsed.href);
+  return true;
+}
+
+app.on("web-contents-created", (_e, contents) => {
+  contents.on("will-navigate", (event, url) => {
+    event.preventDefault();
+    openExternalSafe(url);
+  });
+  contents.setWindowOpenHandler(({ url }) => {
+    openExternalSafe(url);
+    return { action: "deny" };
+  });
+  contents.on("will-attach-webview", (event) => event.preventDefault());
+});
 
 // ── State ────────────────────────────────────────────────────────────────────
 let overlayWin = null;
@@ -215,7 +241,7 @@ async function handleAsk(log) {
     const prompt = getPromptById(loadSettings().activePromptId);
     const { text, meta } = await askClaude(png, log, prompt.body);
     meta.promptName = prompt.name;
-    const html = await marked.parse(text);
+    const html = renderMarkdown(text);
     overlayWin?.webContents.send("answer", {
       html,
       text,
@@ -227,7 +253,6 @@ async function handleAsk(log) {
       source: "text",
       question: `[${prompt.name}] ${name || "Chrome window"}`,
       text,
-      html,
       meta,
     });
 
@@ -245,6 +270,20 @@ async function handleAsk(log) {
   } finally {
     setTrayState(isExtensionAlive() ? "idle" : "warn");
   }
+}
+
+function replayHistoryEntry(id) {
+  const entry = getHistoryEntry(id);
+  if (!entry) return;
+  showOverlay(ensureOverlay(), isMac);
+  overlayWin?.webContents.send("answer", {
+    // Render again from the text: history saved by older versions may hold
+    // HTML that was not escaped.
+    html: renderMarkdown(entry.text || ""),
+    text: entry.text,
+    meta: { ...(entry.meta || {}), replayed: true },
+    source: entry.source,
+  });
 }
 
 function toggleOverlay() {
@@ -332,7 +371,7 @@ async function handleVoiceAudio(arrayBuffer) {
     });
 
     const { text, meta } = await askClaudeText(transcript, log);
-    const html = await marked.parse(text);
+    const html = renderMarkdown(text);
     overlayWin?.webContents.send("answer", {
       html,
       text,
@@ -344,7 +383,6 @@ async function handleVoiceAudio(arrayBuffer) {
       source: "voice",
       question: transcript,
       text,
-      html,
       meta: { ...meta, transcript },
     });
   } catch (err) {
@@ -527,18 +565,20 @@ function registerIPC() {
   });
 
   // Extension
-  ipcMain.handle("extension:info", () => ({ path: EXTENSION_DIR }));
+  ipcMain.handle("extension:info", () => ({ path: getExtensionDir() }));
   ipcMain.handle("extension:is-connected", () => isExtensionAlive());
-  ipcMain.on("extension:open-folder", () => shell.openPath(EXTENSION_DIR));
+  ipcMain.on("extension:open-folder", () =>
+    shell.openPath(getExtensionDir()),
+  );
   ipcMain.on("extension:open-page", () =>
     shell.openExternal("chrome://extensions"),
   );
 
   // Common
-  ipcMain.on("open-external", (_e, url) => shell.openExternal(url));
+  ipcMain.on("open-external", (_e, url) => openExternalSafe(url));
   ipcMain.on("clipboard:copy", (_e, text) => clipboard.writeText(text));
   ipcMain.on("app:open-license", () =>
-    shell.openPath(join(PROJECT_ROOT, "LICENSE")),
+    shell.openPath(LICENSE_PATH),
   );
 
   // Onboarding
@@ -577,17 +617,7 @@ function registerIPC() {
   ipcMain.handle("history:list", () => listHistory());
   ipcMain.handle("history:get", (_e, id) => getHistoryEntry(id));
   ipcMain.on("history:clear", () => clearHistory());
-  ipcMain.on("history:select", (_e, id) => {
-    const entry = getHistoryEntry(id);
-    if (!entry) return;
-    showOverlay(ensureOverlay(), isMac);
-    overlayWin?.webContents.send("answer", {
-      html: entry.html,
-      text: entry.text,
-      meta: { ...(entry.meta || {}), replayed: true },
-      source: entry.source,
-    });
-  });
+  ipcMain.on("history:select", (_e, id) => replayHistoryEntry(id));
 }
 
 function notify(title, body) {
@@ -682,6 +712,14 @@ async function startRuntime() {
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Renderers only need the microphone (overlay voice capture). Deny the rest.
+  session.defaultSession.setPermissionRequestHandler(
+    (_wc, permission, callback, details) => {
+      const fromApp = String(details?.requestingUrl || "").startsWith("file://");
+      callback(permission === "media" && fromApp);
+    },
+  );
+
   // Start hidden from dock; updateDockVisibility() will show it whenever
   // a real UI window (onboarding or settings) is visible.
   if (isMac) app.dock?.hide();
@@ -696,6 +734,12 @@ app.whenReady().then(async () => {
   hydrateProcessEnv();
   const settings = loadSettings();
 
+  try {
+    syncExtensionDir();
+  } catch (err) {
+    logger.error({ err: err.message }, "could not copy the Chrome extension");
+  }
+
   ensureOverlay();
   registerIPC();
 
@@ -705,17 +749,7 @@ app.whenReady().then(async () => {
     onToggleOverlay: toggleOverlay,
     onOpenSettings: () => openSettings(),
     onOpenAbout: () => openSettings("about"),
-    onHistorySelect: (id) => {
-      const entry = getHistoryEntry(id);
-      if (!entry) return;
-      showOverlay(ensureOverlay(), isMac);
-      overlayWin?.webContents.send("answer", {
-        html: entry.html,
-        text: entry.text,
-        meta: { ...(entry.meta || {}), replayed: true },
-        source: entry.source,
-      });
-    },
+    onHistorySelect: replayHistoryEntry,
     onClearHistory: () => clearHistory(),
     onQuit: () => app.quit(),
   });
