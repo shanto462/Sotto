@@ -75,7 +75,6 @@ function notify() {
  *   source: "text" | "voice",
  *   question: string,
  *   text: string,
- *   html: string,
  *   meta?: object,
  * }} entry
  */
@@ -89,7 +88,6 @@ export function addHistoryEntry(entry) {
     source: entry.source,
     question: (entry.question || "").slice(0, 200),
     text: entry.text,
-    html: entry.html,
     meta: entry.meta || null,
   };
   entries.push(full);

@@ -114,8 +114,15 @@ Manual steps:
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and select the extension folder:
    - from source: the [`extension/`](extension) folder in this repo
-   - from a packaged app: **tray → Open Chrome extension folder**
+   - from a packaged app: **tray → Open Chrome extension folder**. The app
+     keeps this copy in its data folder, so the path stays the same across
+     updates.
 4. Reload any open tab so the content script attaches.
+
+The extension ID is fixed by the `key` in its manifest
+(`afifinjoafbkafddmedlcjelgnfnoobg`), and the app only accepts requests from
+that ID. If a toast says "unknown extension ID", reload the extension at
+`chrome://extensions`.
 
 ---
 
@@ -191,7 +198,7 @@ The providers' own data policies apply to what you send them. Locally:
   `history.json` only if you turn on **Preferences → General → Remember answers
   across sessions** (off by default).
 
-Settings live at:
+Settings (and, for packaged builds, the Chrome extension folder) live at:
 - macOS: `~/Library/Application Support/sotto/`
 - Windows: `%APPDATA%\sotto\`
 
@@ -206,11 +213,13 @@ Sotto holds sensitive permissions (screen recording and microphone), so it is
 built to keep other software from borrowing them:
 
 - **Local server**: the extension talks to the app on `127.0.0.1:8765`. The
-  server only answers loopback requests from Chrome extensions or local tools.
-  Requests from web pages (any `http(s)` origin) and DNS-rebinding attempts are
-  rejected, so a website cannot trigger a capture.
+  server only answers loopback requests from the Sotto extension (its ID is
+  pinned) or from local tools such as `curl`. Requests from web pages, other
+  extensions, and DNS-rebinding attempts are rejected, so a website cannot
+  trigger a capture or even detect that Sotto is running.
 - **Untrusted answers**: answers are derived from whatever page is on screen,
-  so raw HTML in them is escaped, never rendered. Windows cannot navigate away
+  so raw HTML in them is escaped, never rendered, and images are shown as
+  their alt text. Windows cannot navigate away
   from the app, and links open in your normal browser (`http`, `https`, and
   `mailto` only).
 - **Locked-down renderers**: every window runs with `sandbox`,

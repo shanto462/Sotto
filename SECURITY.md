@@ -35,9 +35,9 @@ What to expect:
 Sotto can see your screen, hear your microphone, and hold your API keys, so
 these areas matter most:
 
-- **The local HTTP server** (`127.0.0.1:8765`). Only the Chrome extension and
-  local tools should be able to use it. A web page that can trigger `/ask`, or
-  read anything from the server, is a vulnerability.
+- **The local HTTP server** (`127.0.0.1:8765`). Only the Sotto extension and
+  local tools should be able to use it. A web page or another extension that
+  can trigger `/ask`, or read anything from the server, is a vulnerability.
 - **Rendering of answers in the overlay.** Answers come from Claude reading
   whatever page is on screen, so they are untrusted. Script execution, HTML
   injection, or navigation of an app window is a vulnerability.

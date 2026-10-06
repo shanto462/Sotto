@@ -52,9 +52,10 @@ import {
 import { getSettingsWindow, openSettingsWindow } from "./windows/settings.js";
 import {
   ASSETS_DIR,
-  EXTENSION_DIR,
+  getExtensionDir,
   LICENSE_PATH,
   PROJECT_ROOT,
+  syncExtensionDir,
 } from "./paths.js";
 import { registerShortcuts, unregisterAll } from "./shortcuts.js";
 import {
@@ -252,7 +253,6 @@ async function handleAsk(log) {
       source: "text",
       question: `[${prompt.name}] ${name || "Chrome window"}`,
       text,
-      html,
       meta,
     });
 
@@ -270,6 +270,20 @@ async function handleAsk(log) {
   } finally {
     setTrayState(isExtensionAlive() ? "idle" : "warn");
   }
+}
+
+function replayHistoryEntry(id) {
+  const entry = getHistoryEntry(id);
+  if (!entry) return;
+  showOverlay(ensureOverlay(), isMac);
+  overlayWin?.webContents.send("answer", {
+    // Render again from the text: history saved by older versions may hold
+    // HTML that was not escaped.
+    html: renderMarkdown(entry.text || ""),
+    text: entry.text,
+    meta: { ...(entry.meta || {}), replayed: true },
+    source: entry.source,
+  });
 }
 
 function toggleOverlay() {
@@ -369,7 +383,6 @@ async function handleVoiceAudio(arrayBuffer) {
       source: "voice",
       question: transcript,
       text,
-      html,
       meta: { ...meta, transcript },
     });
   } catch (err) {
@@ -552,9 +565,11 @@ function registerIPC() {
   });
 
   // Extension
-  ipcMain.handle("extension:info", () => ({ path: EXTENSION_DIR }));
+  ipcMain.handle("extension:info", () => ({ path: getExtensionDir() }));
   ipcMain.handle("extension:is-connected", () => isExtensionAlive());
-  ipcMain.on("extension:open-folder", () => shell.openPath(EXTENSION_DIR));
+  ipcMain.on("extension:open-folder", () =>
+    shell.openPath(getExtensionDir()),
+  );
   ipcMain.on("extension:open-page", () =>
     shell.openExternal("chrome://extensions"),
   );
@@ -602,17 +617,7 @@ function registerIPC() {
   ipcMain.handle("history:list", () => listHistory());
   ipcMain.handle("history:get", (_e, id) => getHistoryEntry(id));
   ipcMain.on("history:clear", () => clearHistory());
-  ipcMain.on("history:select", (_e, id) => {
-    const entry = getHistoryEntry(id);
-    if (!entry) return;
-    showOverlay(ensureOverlay(), isMac);
-    overlayWin?.webContents.send("answer", {
-      html: entry.html,
-      text: entry.text,
-      meta: { ...(entry.meta || {}), replayed: true },
-      source: entry.source,
-    });
-  });
+  ipcMain.on("history:select", (_e, id) => replayHistoryEntry(id));
 }
 
 function notify(title, body) {
@@ -729,6 +734,12 @@ app.whenReady().then(async () => {
   hydrateProcessEnv();
   const settings = loadSettings();
 
+  try {
+    syncExtensionDir();
+  } catch (err) {
+    logger.error({ err: err.message }, "could not copy the Chrome extension");
+  }
+
   ensureOverlay();
   registerIPC();
 
@@ -738,17 +749,7 @@ app.whenReady().then(async () => {
     onToggleOverlay: toggleOverlay,
     onOpenSettings: () => openSettings(),
     onOpenAbout: () => openSettings("about"),
-    onHistorySelect: (id) => {
-      const entry = getHistoryEntry(id);
-      if (!entry) return;
-      showOverlay(ensureOverlay(), isMac);
-      overlayWin?.webContents.send("answer", {
-        html: entry.html,
-        text: entry.text,
-        meta: { ...(entry.meta || {}), replayed: true },
-        source: entry.source,
-      });
-    },
+    onHistorySelect: replayHistoryEntry,
     onClearHistory: () => clearHistory(),
     onQuit: () => app.quit(),
   });

@@ -6,15 +6,25 @@ import { recordHeartbeat } from "./extension-monitor.js";
 // request reached us through a DNS-rebinding trick or a proxy.
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
+// The Sotto extension's ID is fixed by the "key" in extension/manifest.json,
+// so it is the same on every machine and install folder. If you publish a
+// build to the Chrome Web Store, add the store-assigned ID here too.
+export const ALLOWED_EXTENSION_IDS = new Set(["afifinjoafbkafddmedlcjelgnfnoobg"]);
+
 /**
  * Decide whether a request may talk to the daemon.
  *
  * Browsers attach an Origin header to every cross-origin fetch and form POST,
  * and page scripts cannot forge it. So:
- *   - Origin chrome-extension://…  → the Sotto extension (allowed)
- *   - no Origin                    → a local tool such as curl (allowed; a
- *                                    local process already runs as the user)
- *   - any other Origin             → a web page (rejected)
+ *   - Origin chrome-extension://<Sotto's ID>  → the Sotto extension (allowed)
+ *   - Origin chrome-extension://<other ID>    → another extension (rejected)
+ *   - no Origin, no browser fetch metadata    → a local tool such as curl
+ *                                               (allowed; a local process
+ *                                               already runs as the user)
+ *   - no Origin, Sec-Fetch-Mode: no-cors      → a page's <script>/<img> tag
+ *                                               (rejected, so a page cannot
+ *                                               even detect that Sotto runs)
+ *   - any other Origin                        → a web page (rejected)
  *
  * @param {import("node:http").IncomingHttpHeaders} headers
  * @returns {{ ok: true, origin: string | null } | { ok: false, reason: string }}
@@ -25,10 +35,17 @@ export function checkRequestOrigin(headers) {
     return { ok: false, reason: "host not allowed" };
   }
   const origin = headers.origin;
-  if (origin == null) return { ok: true, origin: null };
-  if (/^chrome-extension:\/\/[a-p]{32}$/.test(origin)) {
+  if (origin == null) {
+    if (headers["sec-fetch-mode"] === "no-cors") {
+      return { ok: false, reason: "no-cors request" };
+    }
+    return { ok: true, origin: null };
+  }
+  const ext = /^chrome-extension:\/\/([a-p]{32})$/.exec(origin);
+  if (ext && ALLOWED_EXTENSION_IDS.has(ext[1])) {
     return { ok: true, origin };
   }
+  if (ext) return { ok: false, reason: "unknown extension" };
   return { ok: false, reason: "origin not allowed" };
 }
 
@@ -62,7 +79,13 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
         { method: req.method, url: req.url, origin: req.headers.origin, host: req.headers.host },
         `rejected request: ${access.reason}`,
       );
-      sendJson(res, 403, { ok: false, error: "forbidden" });
+      // The extension shows this text in a toast. An unknown extension ID
+      // usually means an old copy of the extension is still loaded.
+      const error =
+        access.reason === "unknown extension"
+          ? "unknown extension ID. Reload the Sotto extension at chrome://extensions"
+          : "forbidden";
+      sendJson(res, 403, { ok: false, error });
       return;
     }
 

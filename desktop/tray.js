@@ -1,7 +1,7 @@
 import { Menu, nativeImage, shell, Tray } from "electron";
 import { join } from "node:path";
 import { isExtensionAlive } from "../src/extension-monitor.js";
-import { ASSETS_DIR as ASSETS, EXTENSION_DIR } from "./paths.js";
+import { ASSETS_DIR as ASSETS, getExtensionDir } from "./paths.js";
 
 let tray = null;
 let state = "idle"; // "idle" | "busy" | "warn"
@@ -89,7 +89,7 @@ function rebuildMenu() {
     },
     {
       label: "Open Chrome extension folder",
-      click: () => shell.openPath(EXTENSION_DIR),
+      click: () => shell.openPath(getExtensionDir()),
     },
     { type: "separator" },
     {

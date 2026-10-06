@@ -28,6 +28,12 @@ describe("renderMarkdown", () => {
     assert.doesNotMatch(html, /<meta/);
   });
 
+  it("shows images as alt text and never loads them", () => {
+    const html = renderMarkdown("![diagram](file://fileserver/share/x.png) ![x](https://tracker.example/p.gif)");
+    assert.doesNotMatch(html, /<img/);
+    assert.match(html, /diagram/);
+  });
+
   it("highlights fenced code and escapes its contents", () => {
     const html = renderMarkdown('```js\nconst a = "<b>";\n```');
     assert.match(html, /class="hljs language-js"/);

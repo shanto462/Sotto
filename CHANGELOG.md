@@ -8,11 +8,15 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Security
 
-- The local HTTP server now rejects requests from web pages and DNS-rebinding
-  attempts. Before, any website could trigger a capture and a Claude request
+- The local HTTP server now only accepts the Sotto extension (ID pinned by a
+  manifest `key`) and local tools. Web pages, other extensions, page
+  `<script>`/`<img>` probes, and DNS-rebinding attempts are rejected. Before,
+  any website could trigger a capture and a Claude request
   (`Access-Control-Allow-Origin: *`, no origin check).
-- Raw HTML in Claude's answers is escaped instead of rendered, so a hostile
-  page cannot inject markup into the overlay through prompt injection.
+- Raw HTML in Claude's answers is escaped instead of rendered, and images are
+  shown as alt text, so a hostile page cannot inject markup into the overlay
+  through prompt injection. History replay renders again from the saved text
+  instead of reusing stored HTML.
 - App windows can no longer navigate away from the bundled UI. Links open in
   the default browser, and only for `http`, `https`, and `mailto`.
 - Only the microphone permission is granted to app windows. All other
@@ -32,6 +36,15 @@ uses [Semantic Versioning](https://semver.org/).
 - In packaged builds, **Open Chrome extension folder** and **View LICENSE**
   now work. The extension and LICENSE were packed inside `app.asar`, where
   Chrome and the OS cannot open them.
+- Packaged builds copy the Chrome extension into the app's data folder, so its
+  path stays the same across updates. The Windows portable build runs from a
+  temp folder that is deleted on quit, which would have broken the extension.
+
+### Upgrade notes
+
+- Load the Chrome extension once more from the folder shown in onboarding (or
+  tray → Open Chrome extension folder). Its ID is now fixed, and the app
+  rejects other IDs.
 
 ### Added
 
@@ -46,6 +59,7 @@ uses [Semantic Versioning](https://semver.org/).
 
 - Node.js 22 or newer is required (Node 20 is end of life).
 - The Chrome extension no longer logs a line in the console of every page.
+- Chrome extension version 0.6.0.
 
 ## [0.3.0] - 2026-05-18
 

@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { request } from "node:http";
 import { after, before, describe, it } from "node:test";
-import { checkRequestOrigin, createSolverServer } from "../src/server.js";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { ALLOWED_EXTENSION_IDS, checkRequestOrigin, createSolverServer } from "../src/server.js";
 
-const EXT_ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
+const EXT_ORIGIN = "chrome-extension://afifinjoafbkafddmedlcjelgnfnoobg";
+const OTHER_EXT_ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
 
 const silentLogger = {
   info() {},
@@ -44,6 +47,26 @@ describe("checkRequestOrigin", () => {
     for (const origin of ["https://example.com", "http://127.0.0.1:3000", "null", "file://"]) {
       assert.equal(checkRequestOrigin({ host: "127.0.0.1:8765", origin }).ok, false, origin);
     }
+  });
+
+  it("rejects other extensions", () => {
+    const r = checkRequestOrigin({ host: "127.0.0.1:8765", origin: OTHER_EXT_ORIGIN });
+    assert.deepEqual(r, { ok: false, reason: "unknown extension" });
+  });
+
+  it("rejects page subresource requests (script/img tags) that carry no Origin", () => {
+    const r = checkRequestOrigin({ host: "127.0.0.1:8765", "sec-fetch-mode": "no-cors" });
+    assert.equal(r.ok, false);
+  });
+
+  it("allows the pinned ID from extension/manifest.json", () => {
+    // Chrome derives an extension ID from the manifest key: SHA-256 of the
+    // public key, first 32 hex digits, mapped 0-f → a-p.
+    const { key } = JSON.parse(readFileSync(new URL("../extension/manifest.json", import.meta.url), "utf8"));
+    const hex = createHash("sha256").update(Buffer.from(key, "base64")).digest("hex").slice(0, 32);
+    const id = [...hex].map((c) => String.fromCharCode(97 + parseInt(c, 16))).join("");
+    assert.ok(ALLOWED_EXTENSION_IDS.has(id), `manifest key gives ${id}`);
+    assert.equal(EXT_ORIGIN, `chrome-extension://${id}`);
   });
 
   it("rejects look-alike extension origins", () => {
@@ -101,6 +124,12 @@ describe("solver server", () => {
     assert.equal(r.status, 403);
     assert.equal(r.headers["access-control-allow-origin"], undefined);
     assert.equal(calls, before);
+  });
+
+  it("tells an old copy of the extension to reload", async () => {
+    const r = await send(port, { method: "POST", path: "/ask", headers: { origin: OTHER_EXT_ORIGIN } });
+    assert.equal(r.status, 403);
+    assert.match(r.body.error, /Reload the Sotto extension/);
   });
 
   it("refuses CORS preflight from a web page", async () => {

@@ -3,7 +3,8 @@
 // Claude's answer is derived from a screenshot of whatever page the user is
 // on, so treat it as untrusted: a hostile page can try to make Claude echo raw
 // HTML (prompt injection). Raw HTML in the markdown is therefore escaped and
-// shown as text. Markdown syntax (code, lists, links, tables…) still renders.
+// shown as text, and images are reduced to their alt text. Markdown syntax
+// (code, lists, links, tables…) still renders.
 
 import hljs from "highlight.js";
 import { Marked } from "marked";
@@ -30,6 +31,11 @@ const md = new Marked(
     renderer: {
       // Covers both block-level and inline raw HTML tokens.
       html({ text }) {
+        return escapeHtml(text);
+      },
+      // Show images as their alt text. Answers never need them, and loading
+      // one could leak a request (for example to a file:// network share).
+      image({ text }) {
         return escapeHtml(text);
       },
     },
