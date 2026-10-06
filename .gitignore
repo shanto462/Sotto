@@ -1,7 +1,19 @@
+# Dependencies and build output
 node_modules/
-.env
-*.log
-.DS_Store
 dist/
 build/
 /sotto
+
+# Local secrets and env files (keep the example)
+.env
+.env.*
+!.env.example
+
+# Logs and OS / editor noise
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+coverage/
