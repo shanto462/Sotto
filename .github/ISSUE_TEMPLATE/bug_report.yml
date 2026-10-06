@@ -1,0 +1,58 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not paste API keys, and remove anything private from logs and screenshots.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: "I pressed Ctrl+M in Chrome. I expected an answer in the overlay, but the toast said 'Sotto app not reachable'."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Launch Sotto.app
+        2. Open any page in Chrome
+        3. Press Ctrl+M
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Sotto version
+      description: Preferences → About, or the version in package.json.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: How are you running Sotto?
+      options:
+        - Packaged app (npm run build:mac / build:win)
+        - Dev mode (npm start)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Terminal output from `npm start`, or the Chrome extension service worker console. Remove anything private.
+      render: shell
