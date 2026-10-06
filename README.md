@@ -1,11 +1,14 @@
 # Sotto
 
-A tray-resident desktop companion that captures the active Chrome window on a
-keystroke (or your voice), asks Claude to explain or summarize it, and renders
-the answer in an overlay that's hidden from screen-share.
+[![CI](https://github.com/shanto462/Sotto/actions/workflows/ci.yml/badge.svg)](https://github.com/shanto462/Sotto/actions/workflows/ci.yml)
+[![License: Personal & Educational Use](https://img.shields.io/badge/license-Personal%20%26%20Educational%20Use-blue)](LICENSE)
 
-Built for lecturers, presenters, and streamers who occasionally need a quiet
-recap or definition — the on-screen equivalent of speaker notes on a podium.
+A tray-resident desktop companion that captures the active Chrome window on a
+keystroke (or your voice), asks Claude to explain or summarize it, and shows
+the answer in an overlay that is hidden from screen-share.
+
+Built for lecturers, presenters, and streamers who sometimes need a quiet
+recap or definition: the on-screen version of speaker notes on a podium.
 
 > **Important.** Sotto is licensed under a custom Personal & Educational Use
 > license (see [LICENSE](LICENSE)). The screen-capture-invisible overlay must
@@ -39,10 +42,10 @@ Linux is not supported.
 ### Prerequisites
 
 - macOS 13+ **or** Windows 10 (build 19041 / 2004+)
-- Node.js ≥ 20
+- Node.js 22 or newer (see [`.nvmrc`](.nvmrc))
 - Google Chrome
 - An Anthropic API key
-- (Optional, for voice trigger) An OpenAI API key
+- (Optional, for the voice trigger) An OpenAI API key
 
 ### Install
 
@@ -52,69 +55,67 @@ cd Sotto
 npm install
 ```
 
+### Build and launch the app
+
 **Recommended: build a real app bundle once, then launch that.**
 
 ```bash
-npm run package          # produces dist/mac-arm64/Sotto.app (~286 MB)
-open dist/mac-arm64/Sotto.app
+npm run build:mac        # produces dist/mac-arm64/Sotto.app
+npm run run:mac          # opens it
+# or both in one step:
+npm run dev:mac
 ```
 
-Running the packaged `.app` matters because macOS attributes permission
-requests to the process that owns them. If you `npm start` from a terminal
-(dev mode), the OS asks **the terminal** (Terminal, iTerm, Ghostty…) for
-Screen Recording / Microphone / Accessibility — not Sotto. With the packaged
-app, prompts correctly read "Sotto would like to record this computer's
-screen" and grants persist under `com.shanto.sotto`.
+On Windows use `npm run build:win`, `npm run run:win`, or `npm run dev:win`
+(produces `dist\win-unpacked\Sotto.exe`).
 
-For day-to-day development:
+Running the packaged app matters on macOS because the OS attributes permission
+requests to the process that owns them. If you `npm start` from a terminal
+(dev mode), macOS asks **the terminal** (Terminal, iTerm, Ghostty…) for
+Screen Recording, Microphone, and Accessibility, not Sotto. With the packaged
+app, the prompts correctly read "Sotto would like to record this computer's
+screen" and the grants stay under `com.shanto.sotto`.
+
+For quick iteration:
 
 ```bash
-npm start                # quick iteration; permissions get scoped to the parent terminal
+npm start                # dev mode; permissions are scoped to the parent terminal
 ```
 
-The onboarding wizard opens automatically on first launch — license
-acceptance → API keys → permissions → Chrome extension. Everything is
-configured from the GUI. No `.env` editing required.
+The onboarding wizard opens on first launch: license acceptance → API keys →
+permissions → Chrome extension. Everything is configured from the GUI. No
+`.env` file is needed.
 
 ### Other build targets
 
 ```bash
-npm run package:dmg      # mac: full .dmg installer (signed only ad-hoc — Gatekeeper will warn)
-npm run package:win      # windows: portable .exe (run on a Windows host)
+npm run build:dmg        # macOS: .dmg installer (not signed with a Developer ID, so Gatekeeper will warn)
+npm run build:exe        # Windows: portable .exe (run on a Windows host)
 ```
 
-### Grant OS permissions (one-time)
+### Grant OS permissions (one time)
 
-**macOS** — System Settings → Privacy & Security:
+**macOS**: System Settings → Privacy & Security:
 
-- **Screen Recording** — for the Electron app (required for Ctrl+M capture).
-- **Microphone** — for voice trigger.
-- **Accessibility** — for the global Ctrl+B / Ctrl+H / Ctrl+L hotkeys.
+- **Screen Recording**: required for Ctrl+M capture.
+- **Microphone**: for the voice trigger.
+- **Accessibility**: for the global Ctrl+B / Ctrl+H / Ctrl+L hotkeys.
 
-**Windows** — no special permissions. The first PowerShell invocation may take ~500ms.
+**Windows**: no special permissions. The first PowerShell call may take about 500 ms.
 
 ### Load the Chrome extension
 
-Done from the onboarding wizard (Step 4). If you skipped it or want to re-run
-later, go to **tray → Preferences → Extension** or **About → Re-run setup**.
+The onboarding wizard (step 4) walks you through this and shows the exact
+folder to load. To run it again later, use **tray → Preferences → Extension**
+or **About → Re-run setup**.
 
-The manual steps:
+Manual steps:
 1. Open `chrome://extensions`.
-2. Enable **Developer mode** (top-right).
-3. Click **Load unpacked** → select the [`extension/`](extension) folder.
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and select the extension folder:
+   - from source: the [`extension/`](extension) folder in this repo
+   - from a packaged app: **tray → Open Chrome extension folder**
 4. Reload any open tab so the content script attaches.
-
----
-
-## Run
-
-```bash
-npm start
-```
-
-That launches the Electron app. The tray icon appears in your menu bar (macOS)
-or system tray (Windows). Closing windows does **not** quit the app — quit from
-the tray menu or with `Cmd+Q` / `Ctrl+Q`.
 
 ---
 
@@ -122,17 +123,20 @@ the tray menu or with `Cmd+Q` / `Ctrl+Q`.
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+M` (in Chrome) | Capture the active Chrome window, ask Claude with the current prompt mode |
+| `Ctrl+M` (in Chrome) | Capture the active Chrome window and ask Claude with the current prompt mode |
 | `Ctrl+Shift+V` (anywhere) | Start / stop voice recording → Whisper → Claude |
 | `Ctrl+B` (anywhere) | Show / hide the overlay |
-| `Ctrl+H` | Toggle history rail in the overlay |
-| `Ctrl+L` | Clear current answer (back to empty state) |
-| `Ctrl+↑ / ↓ / ← / →` | Nudge overlay 40px |
+| `Ctrl+H` | Toggle the history rail in the overlay |
+| `Ctrl+L` | Clear the current answer |
+| `Ctrl+↑ / ↓ / ← / →` | Nudge the overlay 40 px |
 | `Ctrl+1 … Ctrl+5` | Switch prompt mode (Recap / TL;DR / Define / Explain / Translate) |
-| `Cmd+,` (from tray menu) | Open Preferences |
+| `Cmd+,` (from the tray menu) | Open Preferences |
 
-`Ctrl+M` actually fires the Chrome extension's command — on macOS this is the
-physical Control key, not Cmd. Customise at `chrome://extensions/shortcuts`.
+`Ctrl+M` fires the Chrome extension's command. On macOS this is the physical
+Control key, not Cmd. You can change it at `chrome://extensions/shortcuts`.
+
+Closing windows does **not** quit the app. Quit from the tray menu or with
+`Cmd+Q` / `Ctrl+Q`.
 
 ---
 
@@ -154,71 +158,69 @@ Ctrl+Shift+V                    Renderer: MediaRecorder → ArrayBuffer
 
 Overlay window (Electron BrowserWindow)
   • Frameless, transparent, always-on-top, click-through
-  • setContentProtection(true) — hidden from screen capture
+  • setContentProtection(true): hidden from screen capture
   • Hover to scroll, Ctrl+B to hide
 ```
 
-The overlay is positioned over the right edge of the active Chrome window on
-macOS, sits at the `screen-saver` window level (above full-screen apps), and
-is click-through except when the cursor hovers it.
+On macOS the overlay sits over the right edge of the active Chrome window, at
+the `screen-saver` window level (above full-screen apps). It is click-through
+except when the cursor hovers it.
 
 ---
 
-## Project structure
+## Privacy: what leaves your machine
 
-```
-Sotto/
-├── LICENSE                     Personal & Educational Use license
-├── README.md
-├── package.json                npm start → electron desktop/main.js
-├── plans/                      Design docs
-├── assets/                     Tray + app icons (regenerate with `npm run icons`)
-├── src/                        Shared library (Node + Electron-main)
-│   ├── capture.js              Cross-platform capture via desktopCapturer
-│   ├── os.js                   Window-query: AppleScript / Win32 PowerShell
-│   ├── claude.js               Anthropic API (image + text)
-│   ├── voice.js                OpenAI Whisper transcription
-│   ├── prompt.js               System prompts + PROMPT_PRESETS
-│   ├── config.js               Env-driven constants
-│   ├── server.js               Local HTTP server (factory)
-│   ├── logger.js               pino
-│   ├── settings.js             userData/settings.json
-│   ├── secrets.js              OS keychain (safeStorage)
-│   ├── extension-monitor.js    Heartbeat liveness
-│   ├── history.js              Rolling Q&A store
-│   └── index.js                Barrel re-exports
-├── desktop/                    Electron app
-│   ├── main.js                 Orchestrator
-│   ├── tray.js                 Menu-bar icon + menu
-│   ├── shortcuts.js            globalShortcut registration
-│   ├── windows/                BrowserWindow factories
-│   ├── preload/                Per-window context-bridge preloads
-│   └── ui/
-│       ├── shared/tokens.css   Design tokens (theme-aware)
-│       ├── overlay/            Live answer overlay
-│       ├── onboarding/         4-step setup wizard
-│       └── settings/           Tabbed preferences window
-└── extension/                  Chrome MV3 extension (Ctrl+M trigger + heartbeat)
-```
+Sotto has no server of its own, no account, and no analytics or telemetry.
+Data only leaves your machine when you trigger a request, and only to the AI
+provider that handles it:
 
----
+| You do | What is sent | Sent to |
+|---|---|---|
+| Press `Ctrl+M` (or tray → Ask Claude) | A screenshot of the active Chrome window + the active prompt | Anthropic API |
+| Use the voice trigger | The recorded audio clip | OpenAI transcription API |
+| | The transcript of that clip | Anthropic API |
+| Save or test an API key | The key itself, to check that it works | That provider's API |
 
-## Settings (tray → Preferences)
+The providers' own data policies apply to what you send them. Locally:
 
-- **General** — theme (dark / light / auto), opacity, font size, auto-launch on
-  login, persisted history toggle, position-over-Chrome (macOS).
-- **Triggers** — full list of registered global shortcuts.
-- **Voice** — enable/disable, max recording length, Whisper model.
-- **Prompts** — pick the active prompt mode for `Ctrl+M`. Five built-in modes;
-  full system prompt text is visible for transparency.
-- **API & Models** — Anthropic key, OpenAI key. Live validation against
-  provider APIs. Stored in OS keychain via Electron's `safeStorage`.
-- **Extension** — live connection status.
-- **About** — version, runtime info, link to LICENSE.
+- **API keys** are encrypted with the OS keychain (Electron `safeStorage`:
+  Keychain on macOS, DPAPI on Windows) and stored in `secrets.enc`. They are
+  never written to disk in plain text.
+- **Screenshots and audio** are kept in memory only and are not saved to disk.
+- **History** (the last 100 answers) is kept in memory. It is written to
+  `history.json` only if you turn on **Preferences → General → Remember answers
+  across sessions** (off by default).
 
 Settings live at:
-- macOS: `~/Library/Application Support/sotto/settings.json`
-- Windows: `%APPDATA%\sotto\settings.json`
+- macOS: `~/Library/Application Support/sotto/`
+- Windows: `%APPDATA%\sotto\`
+
+To wipe everything on macOS (data, keychain entry, permission grants, login
+item), run `npm run reset`.
+
+---
+
+## Security
+
+Sotto holds sensitive permissions (screen recording and microphone), so it is
+built to keep other software from borrowing them:
+
+- **Local server**: the extension talks to the app on `127.0.0.1:8765`. The
+  server only answers loopback requests from Chrome extensions or local tools.
+  Requests from web pages (any `http(s)` origin) and DNS-rebinding attempts are
+  rejected, so a website cannot trigger a capture.
+- **Untrusted answers**: answers are derived from whatever page is on screen,
+  so raw HTML in them is escaped, never rendered. Windows cannot navigate away
+  from the app, and links open in your normal browser (`http`, `https`, and
+  `mailto` only).
+- **Locked-down renderers**: every window runs with `sandbox`,
+  `contextIsolation`, no Node integration, and a strict Content Security
+  Policy. Only the microphone permission is ever granted to a window.
+- **Hardened packaging**: packaged builds disable Electron's
+  `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`, and `--inspect` entry points, and
+  verify the integrity of `app.asar` at startup.
+
+Found a vulnerability? Please report it privately. See [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -231,7 +233,7 @@ most software uses:
   OBS Display/Window Capture (`NSWindowSharingNone`).
 - **Windows 10 2004+ / 11**: most screen-share tools, OBS, Game Bar, Snipping
   Tool, PrintScreen (`WDA_EXCLUDEFROMCAPTURE`). On older Windows 10 builds the
-  protection downgrades to "blank black region" (`WDA_MONITOR`).
+  protection falls back to a blank black region (`WDA_MONITOR`).
 
 It does **not** block, on any platform:
 - Hardware capture cards (HDMI splitter → recorder).
@@ -239,27 +241,91 @@ It does **not** block, on any platform:
 - Some browser `getDisplayMedia()` paths, depending on OS version.
 - Future OS changes.
 
-**Verify before relying on it for any important session.**
+**Verify it before you rely on it in an important session.**
 - macOS: Cmd+Shift+5 → "Record entire screen" → 3 s → review.
 - Windows: Win+Shift+S, or Win+G then record.
+
+---
+
+## Settings (tray → Preferences)
+
+- **General**: theme (dark / light / auto), opacity, font size, launch at
+  login, remember answers across sessions, position over Chrome (macOS).
+- **Triggers**: the full list of registered global shortcuts.
+- **Voice**: enable/disable, max recording length, Whisper model.
+- **Prompts**: pick the active prompt mode for `Ctrl+M`. Five built-in modes;
+  the full system prompt text is shown for transparency.
+- **API & Models**: Anthropic key, OpenAI key, with live validation against
+  the provider APIs. Stored in the OS keychain.
+- **Extension**: live connection status.
+- **About**: version, runtime info, link to the LICENSE.
 
 ---
 
 ## Development
 
 ```bash
-# Live syntax check
-node --check desktop/main.js src/*.js desktop/**/*.js
+npm run check            # lint + unit tests (what CI runs)
+npm run lint             # ESLint
+npm test                 # node:test unit tests in test/
+npm run icons            # regenerate the placeholder icons
+npm run reset            # macOS: wipe all Sotto data, keys, and permission grants
+```
 
-# Regenerate placeholder icons
-npm run icons
+Useful while debugging:
 
-# Start with a clean userData (forces onboarding)
+```bash
+# Start with a clean profile (forces onboarding)
 npx electron desktop/main.js --user-data-dir=/tmp/sotto-test
 
-# Verify the local HTTP server
+# Check the local HTTP server
 curl http://127.0.0.1:8765/health
 curl -X POST http://127.0.0.1:8765/heartbeat
+```
+
+For local development you can put keys in a `.env` file instead of the
+keychain. Copy [`.env.example`](.env.example) for the full list of options.
+
+### Project structure
+
+```
+Sotto/
+├── LICENSE                     Personal & Educational Use license
+├── package.json                Scripts + electron-builder config
+├── .github/                    CI, Dependabot, issue and PR templates
+├── assets/                     Tray + app icons, macOS entitlements
+├── plans/                      Design docs
+├── scripts/reset.sh            Wipe all local Sotto state (macOS)
+├── src/                        Shared library (Node + Electron main)
+│   ├── capture.js              Cross-platform capture via desktopCapturer
+│   ├── os.js                   Window query: AppleScript / Win32 PowerShell
+│   ├── claude.js               Anthropic API (image + text)
+│   ├── voice.js                OpenAI Whisper transcription
+│   ├── prompt.js               System prompts + PROMPT_PRESETS
+│   ├── markdown.js             Markdown → HTML (raw HTML escaped)
+│   ├── config.js               Env-driven constants
+│   ├── server.js               Local HTTP server + origin checks
+│   ├── logger.js               pino
+│   ├── settings.js             userData/settings.json
+│   ├── merge.js                Settings deep merge
+│   ├── secrets.js              OS keychain (safeStorage)
+│   ├── extension-monitor.js    Heartbeat liveness
+│   ├── history.js              Rolling Q&A store
+│   └── index.js                Barrel re-exports
+├── desktop/                    Electron app
+│   ├── main.js                 Orchestrator
+│   ├── paths.js                App paths (asar-aware)
+│   ├── tray.js                 Menu-bar icon + menu
+│   ├── shortcuts.js            globalShortcut registration
+│   ├── windows/                BrowserWindow factories
+│   ├── preload/                Per-window context-bridge preloads
+│   └── ui/
+│       ├── shared/tokens.css   Design tokens (theme-aware)
+│       ├── overlay/            Live answer overlay
+│       ├── onboarding/         4-step setup wizard
+│       └── settings/           Tabbed preferences window
+├── extension/                  Chrome MV3 extension (Ctrl+M trigger + heartbeat)
+└── test/                       Unit tests (node --test)
 ```
 
 ### Dependencies
@@ -268,16 +334,23 @@ curl -X POST http://127.0.0.1:8765/heartbeat
 |---|---|
 | `@anthropic-ai/sdk` | Claude vision + text API |
 | `openai` | Whisper transcription |
-| `electron` (dev) | Desktop runtime |
-| `electron-builder` (dev) | Packaging into `Sotto.app` / `.exe` |
 | `marked` + `marked-highlight` + `highlight.js` | Markdown rendering |
 | `pino` + `pino-pretty` | Structured logging |
+| `electron` (dev) | Desktop runtime |
+| `electron-builder` (dev) | Packaging into `Sotto.app` / `.exe` |
+| `eslint` (dev) | Linting |
 | `sharp` (dev) | One-shot icon generation |
 
 ---
 
+## Contributing
+
+Bug reports and pull requests are welcome. Please read
+[CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md)
+first. Changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
-Personal & Educational Use License — see [LICENSE](LICENSE).
+Personal & Educational Use License. See [LICENSE](LICENSE).
 
-Not OSI-approved open source. Use restrictions apply; see LICENSE §1.
+This is not OSI-approved open source. Use restrictions apply; see LICENSE §1.
