@@ -2,13 +2,49 @@ import { createServer } from "node:http";
 import { MODEL } from "./config.js";
 import { recordHeartbeat } from "./extension-monitor.js";
 
+// Only loopback hostnames are valid in the Host header. Anything else means the
+// request reached us through a DNS-rebinding trick or a proxy.
+const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/**
+ * Decide whether a request may talk to the daemon.
+ *
+ * Browsers attach an Origin header to every cross-origin fetch and form POST,
+ * and page scripts cannot forge it. So:
+ *   - Origin chrome-extension://…  → the Sotto extension (allowed)
+ *   - no Origin                    → a local tool such as curl (allowed; a
+ *                                    local process already runs as the user)
+ *   - any other Origin             → a web page (rejected)
+ *
+ * @param {import("node:http").IncomingHttpHeaders} headers
+ * @returns {{ ok: true, origin: string | null } | { ok: false, reason: string }}
+ */
+export function checkRequestOrigin(headers) {
+  const hostname = String(headers.host || "").replace(/:\d+$/, "").toLowerCase();
+  if (!ALLOWED_HOSTNAMES.has(hostname)) {
+    return { ok: false, reason: "host not allowed" };
+  }
+  const origin = headers.origin;
+  if (origin == null) return { ok: true, origin: null };
+  if (/^chrome-extension:\/\/[a-p]{32}$/.test(origin)) {
+    return { ok: true, origin };
+  }
+  return { ok: false, reason: "origin not allowed" };
+}
+
+function sendJson(res, status, body) {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
 /**
  * Create a small HTTP server exposing:
- *   GET  /health  → { ok, busy, model, mode }
- *   POST /ask     → invokes onAsk(log), returns its result as JSON
+ *   GET  /health     → { ok, busy, model, mode }
+ *   POST /heartbeat  → records extension liveness
+ *   POST /ask        → invokes onAsk(log), returns its result as JSON
  *
  * The caller owns capture + AI + UI logic via onAsk. The server only handles
- * concurrency (single-flight), CORS, and JSON envelope.
+ * concurrency (single-flight), origin checks, and the JSON envelope.
  *
  * @param {object} opts
  * @param {import("pino").Logger} opts.logger
@@ -20,9 +56,25 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
   let reqCounter = 0;
 
   const server = createServer(async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    const access = checkRequestOrigin(req.headers);
+    if (!access.ok) {
+      logger.warn(
+        { method: req.method, url: req.url, origin: req.headers.origin, host: req.headers.host },
+        `rejected request: ${access.reason}`,
+      );
+      sendJson(res, 403, { ok: false, error: "forbidden" });
+      return;
+    }
+
+    // The extension has host_permissions for this server, so it does not need
+    // CORS. Reflect its origin anyway so it keeps working if Chrome tightens
+    // that rule. Web pages never get here (rejected above).
+    if (access.origin) {
+      res.setHeader("Access-Control-Allow-Origin", access.origin);
+      res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.setHeader("Vary", "Origin");
+    }
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);
@@ -31,15 +83,13 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
     }
 
     if (req.method === "GET" && req.url === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, busy, model: MODEL, mode }));
+      sendJson(res, 200, { ok: true, busy, model: MODEL, mode });
       return;
     }
 
     if (req.method === "POST" && req.url === "/heartbeat") {
       recordHeartbeat();
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true }));
+      sendJson(res, 200, { ok: true });
       return;
     }
 
@@ -49,8 +99,7 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
 
       if (busy) {
         log.warn("rejecting overlapping request");
-        res.writeHead(429, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: "busy" }));
+        sendJson(res, 429, { ok: false, error: "busy" });
         return;
       }
 
@@ -60,34 +109,32 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
       try {
         const result = await onAsk(log);
         log.info(result, "request completed");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(result));
+        sendJson(res, 200, result);
       } catch (err) {
         const msg =
           err?.stderr?.toString?.().trim() || err?.message || String(err);
         log.error({ err: msg }, "request failed");
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: msg }));
+        sendJson(res, 500, { ok: false, error: msg });
       } finally {
         busy = false;
       }
       return;
     }
 
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: false, error: "not found" }));
+    sendJson(res, 404, { ok: false, error: "not found" });
   });
 
   return {
-    listen(port) {
+    listen(port, host = "127.0.0.1") {
       return new Promise((resolve, reject) => {
         server.once("error", reject);
-        server.listen(port, "127.0.0.1", () => {
+        server.listen(port, host, () => {
+          const actualPort = server.address().port;
           logger.info(
-            { port, model: MODEL, mode },
-            `daemon ready — POST http://127.0.0.1:${port}/ask`,
+            { port: actualPort, model: MODEL, mode },
+            `daemon ready — POST http://127.0.0.1:${actualPort}/ask`,
           );
-          resolve();
+          resolve(actualPort);
         });
       });
     },

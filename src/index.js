@@ -16,6 +16,7 @@ export {
   subscribeHistory,
 } from "./history.js";
 export { logger } from "./logger.js";
+export { renderMarkdown } from "./markdown.js";
 export { queryActiveChromeWindow } from "./os.js";
 export {
   getPromptById,

@@ -4,6 +4,7 @@
 import { app } from "electron";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { deepMerge } from "./merge.js";
 
 const DEFAULTS = {
   theme: "dark", // "dark" | "light" | "auto"
@@ -43,21 +44,6 @@ let cache = null;
 
 function path() {
   return join(app.getPath("userData"), "settings.json");
-}
-
-function deepMerge(target, source) {
-  for (const k of Object.keys(source || {})) {
-    const sv = source[k];
-    if (sv && typeof sv === "object" && !Array.isArray(sv)) {
-      target[k] = deepMerge(
-        target[k] && typeof target[k] === "object" ? target[k] : {},
-        sv,
-      );
-    } else {
-      target[k] = sv;
-    }
-  }
-  return target;
 }
 
 export function loadSettings() {

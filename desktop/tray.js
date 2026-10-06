@@ -1,11 +1,7 @@
 import { Menu, nativeImage, shell, Tray } from "electron";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { isExtensionAlive, lastSeenAgoMs } from "../src/extension-monitor.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ASSETS = join(__dirname, "..", "assets");
-const EXTENSION_DIR = join(__dirname, "..", "extension");
+import { join } from "node:path";
+import { isExtensionAlive } from "../src/extension-monitor.js";
+import { ASSETS_DIR as ASSETS, EXTENSION_DIR } from "./paths.js";
 
 let tray = null;
 let state = "idle"; // "idle" | "busy" | "warn"

@@ -1,11 +1,6 @@
 // Receives toast requests from the background service worker and displays them.
 // The actual trigger lives in background.js (chrome.commands + toolbar icon).
 
-const LOG_PREFIX = "[solver]";
-const log = (...args) => console.log(LOG_PREFIX, ...args);
-
-log(`content script loaded · href=${location.href}`);
-
 // Wake the service worker on every page load and ask it to send a heartbeat
 // to the Sotto desktop app. This means as soon as the user opens or navigates
 // any tab, Sotto detects the extension as alive — far faster than waiting on
@@ -63,7 +58,6 @@ function showToast(text, kind = "ok") {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type !== "toast") return false;
-  log(`toast · kind=${msg.kind} · text=${msg.text}`);
   showToast(msg.text, msg.kind);
   return false;
 });
