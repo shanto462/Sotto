@@ -55,7 +55,7 @@
     "pino-pretty": "^13.2.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "electron": "^42.11.10",
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.5",
