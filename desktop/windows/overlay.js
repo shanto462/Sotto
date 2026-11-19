@@ -104,6 +104,41 @@ export function positionOverChrome(win, bounds, savedBounds) {
   });
 }
 
+/**
+ * Move the overlay back to its default spot (top-right of the primary
+ * display) at its current size.
+ */
+export function placeOverlayDefault(win) {
+  if (!win) return;
+  const { workArea } = screen.getPrimaryDisplay();
+  const [width, height] = win.getSize();
+  win.setBounds({
+    x: Math.round(workArea.x + workArea.width - width - MARGIN),
+    y: Math.round(workArea.y + MARGIN),
+    width,
+    height,
+  });
+}
+
+/**
+ * Resize driven by the overlay's corner grip. The window is frameless and
+ * transparent, where OS edge-resizing is unreliable, so the renderer reports
+ * the pointer offset since the drag started and we apply it here.
+ */
+export function resizeOverlayFrom(win, startBounds, dx, dy) {
+  if (!win || !startBounds) return;
+  const [minW, minH] = win.getMinimumSize();
+  const { workArea } = screen.getDisplayMatching(startBounds);
+  const maxW = workArea.x + workArea.width - startBounds.x;
+  const maxH = workArea.y + workArea.height - startBounds.y;
+  win.setBounds({
+    x: startBounds.x,
+    y: startBounds.y,
+    width: Math.round(Math.min(maxW, Math.max(minW || MIN_WIDTH, startBounds.width + dx))),
+    height: Math.round(Math.min(maxH, Math.max(minH || MIN_HEIGHT, startBounds.height + dy))),
+  });
+}
+
 export function showOverlay(win, isMac) {
   if (!win) return;
   if (!win.isVisible()) {

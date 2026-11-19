@@ -132,6 +132,11 @@ async function updateSetting(patch) {
   toast("Saved");
 }
 
+$("#reset-overlay-position")?.addEventListener("click", async () => {
+  await window.api.resetOverlayPosition();
+  toast("Overlay moved back to its default spot");
+});
+
 // ── Prompts ─────────────────────────────────────────────────────────────────
 async function loadPromptsTab() {
   if (!settings) settings = await window.api.getSettings();

@@ -12,7 +12,8 @@ const DEFAULTS = {
   fontSize: 14, // 11 – 18 px
   autoLaunch: false,
   showNotifications: true,
-  positionOverChrome: true, // macOS only
+  // macOS only. Until the user moves the overlay, open it over Chrome.
+  positionOverChrome: false,
   persistHistory: false,
   voice: {
     enabled: true,

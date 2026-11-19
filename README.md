@@ -29,7 +29,8 @@ recap or definition: the on-screen version of speaker notes on a podium.
 | Chrome capture (Ctrl+M) | ✓ | ✓ |
 | Voice trigger (Ctrl+Shift+V → transcription → Claude) | ✓ | ✓ |
 | Overlay hidden from screen capture | ✓ (`NSWindowSharingNone`) | ✓ (`WDA_EXCLUDEFROMCAPTURE`) |
-| Overlay positioned over Chrome | ✓ | ✗ (top-right of primary display) |
+| Overlay drag, resize, remembered position | ✓ | ✓ |
+| Optional "Start over Chrome" placement | ✓ | ✗ |
 | Global hotkeys (Ctrl+B, Ctrl+H, Ctrl+L, Ctrl+1…5, …) | ✓ | ✓ |
 | Light / dark / auto theme | ✓ | ✓ |
 
@@ -181,8 +182,11 @@ Overlay window (Electron BrowserWindow)
   • Hover to scroll, Ctrl+B to hide
 ```
 
-On macOS the overlay sits over the right edge of the active Chrome window, at
-the `screen-saver` window level (above full-screen apps). It is click-through
+The overlay opens at the top-right of your screen. Drag it by its top strip
+and resize it from the bottom-right corner; Sotto remembers where you put it.
+With **Preferences → General → Start over Chrome** (macOS), it opens over the
+right edge of the active Chrome window until you move it yourself. It sits at
+the `screen-saver` window level (above full-screen apps) and is click-through
 except when the cursor hovers it.
 
 ---
@@ -271,7 +275,8 @@ It does **not** block, on any platform:
 ## Settings (tray → Preferences)
 
 - **General**: theme (dark / light / auto), opacity, font size, launch at
-  login, remember answers across sessions, position over Chrome (macOS).
+  login, remember answers across sessions, start over Chrome (macOS),
+  reset the overlay's position.
 - **Triggers**: the full list of registered global shortcuts.
 - **Voice**: enable/disable, max recording length, transcription model.
 - **Prompts**: pick the active prompt mode for `Ctrl+M`. Five built-in modes;

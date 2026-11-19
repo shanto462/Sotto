@@ -193,24 +193,26 @@
         opacity: 0.8;
       }
 
-      /* Visible resize grip in the bottom-right corner.
-         The actual resize is handled by the OS — Electron's frameless window
-         with resizable:true accepts edge/corner drag natively when the window
-         is receiving mouse events (which it is whenever the cursor is over it
-         thanks to our hover-to-interact toggle). The grip is just a visual
-         affordance so users know the corner is grabbable. */
+      /* Resize grip in the bottom-right corner. Dragging it resizes the
+         window through ui.js → main (OS edge-resizing is unreliable on a
+         frameless transparent window). The padding gives a larger hit area
+         than the 14 px glyph. */
       #grip {
         position: absolute;
-        right: 4px;
-        bottom: 4px;
-        width: 14px;
-        height: 14px;
+        right: 0;
+        bottom: 0;
+        padding: 4px;
+        width: 22px;
+        height: 22px;
+        box-sizing: border-box;
         cursor: nwse-resize;
         opacity: 0.4;
         transition: opacity var(--duration-fast) var(--easing);
-        pointer-events: none; /* OS resize edge handles the actual drag */
+        -webkit-app-region: no-drag;
+        touch-action: none;
+        z-index: 5;
       }
-      #grip svg { display: block; }
+      #grip svg { display: block; pointer-events: none; }
       #frame:hover #grip { opacity: 0.7; }
 
       #empty {

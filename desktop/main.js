@@ -49,7 +49,9 @@ import {
 } from "./windows/onboarding.js";
 import {
   createOverlayWindow,
+  placeOverlayDefault,
   positionOverChrome,
+  resizeOverlayFrom,
   showOverlay,
 } from "./windows/overlay.js";
 import { getSettingsWindow, openSettingsWindow } from "./windows/settings.js";
@@ -127,6 +129,8 @@ let overlayWin = null;
 let onboardingWin = null;
 let server = null;
 let runtimeStarted = false; // shortcuts, history, auto-launch (after setup)
+let ignoreOverlaySaveUntil = 0; // skip saving bounds Sotto set itself
+let overlayResizeStart = null; // bounds when a grip resize began
 
 // ── Window factories (lazy) ──────────────────────────────────────────────────
 function ensureOverlay() {
@@ -142,9 +146,11 @@ function ensureOverlay() {
   });
 
   // Persist user-driven move/resize. Debounced so we don't write on every
-  // pixel during a drag.
+  // pixel during a drag. Moves Sotto makes itself (placing over Chrome) are
+  // not saved, so they never overwrite where the user put the overlay.
   let saveTimer = null;
   const queueSave = () => {
+    if (Date.now() < ignoreOverlaySaveUntil) return;
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       if (!overlayWin || overlayWin.isDestroyed()) return;
@@ -249,7 +255,11 @@ async function handleAsk(log) {
   try {
     const { title, bounds } = queryActiveChromeWindow(log);
     const settings = loadSettings();
-    if (bounds && settings.positionOverChrome && isMac) {
+    // "Start over Chrome" only applies until the user places the overlay
+    // themselves; after that, their saved position always wins.
+    const userPlaced = settings.overlay?.x != null;
+    if (bounds && settings.positionOverChrome && isMac && !userPlaced) {
+      ignoreOverlaySaveUntil = Date.now() + 800;
       positionOverChrome(ensureOverlay(), bounds, settings.overlay);
     }
     showOverlay(ensureOverlay(), isMac);
@@ -663,6 +673,30 @@ function registerIPC() {
   // Overlay click-through toggle
   ipcMain.on("set-ignore-mouse-events", (_e, ignore, options) => {
     overlayWin?.setIgnoreMouseEvents(!!ignore, options ?? undefined);
+  });
+
+  // Overlay resize from its corner grip (renderer sends the pointer offset
+  // since the drag began). The resulting resize events are saved like any
+  // user resize.
+  ipcMain.on("overlay:resize-start", () => {
+    overlayResizeStart = overlayWin?.getBounds() ?? null;
+  });
+  ipcMain.on("overlay:resize-to", (_e, dx, dy) => {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    resizeOverlayFrom(overlayWin, overlayResizeStart, dx, dy);
+  });
+  ipcMain.on("overlay:resize-end", () => {
+    overlayResizeStart = null;
+  });
+
+  // Preferences → "Reset position": forget the saved spot.
+  ipcMain.handle("overlay:reset-position", () => {
+    saveSettings({ overlay: { x: null, y: null } });
+    if (overlayWin && !overlayWin.isDestroyed()) {
+      ignoreOverlaySaveUntil = Date.now() + 800;
+      placeOverlayDefault(overlayWin);
+    }
+    return { ok: true };
   });
 
   // Voice: renderer sends recorded audio buffer here

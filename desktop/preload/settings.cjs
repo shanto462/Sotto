@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("api", {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (patch) => ipcRenderer.invoke("settings:save", patch),
   resetSettings: () => ipcRenderer.invoke("settings:reset"),
+  resetOverlayPosition: () => ipcRenderer.invoke("overlay:reset-position"),
   getSecretInfo: () => ipcRenderer.invoke("secret:info"),
   listModels: () => ipcRenderer.invoke("models:list"),
   getAiConfig: () => ipcRenderer.invoke("ai:get-config"),

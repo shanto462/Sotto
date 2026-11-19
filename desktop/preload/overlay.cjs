@@ -23,4 +23,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on("prompt:toast", (_e, data) => cb(data)),
   setIgnoreMouseEvents: (ignore, options) =>
     ipcRenderer.send("set-ignore-mouse-events", ignore, options),
+  overlayResizeStart: () => ipcRenderer.send("overlay:resize-start"),
+  overlayResizeTo: (dx, dy) => ipcRenderer.send("overlay:resize-to", dx, dy),
+  overlayResizeEnd: () => ipcRenderer.send("overlay:resize-end"),
 });

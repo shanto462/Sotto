@@ -33,6 +33,7 @@ window.api.onPromptToast(({ name }) => {
 
 // ── Click-through ↔ interactive toggle ───────────────────────────────────────
 let clickThrough = true;
+let resizing = null; // { x, y } screen point where a grip drag began
 function setClickThrough(value) {
   if (value === clickThrough) return;
   clickThrough = value;
@@ -40,8 +41,35 @@ function setClickThrough(value) {
   else window.api.setIgnoreMouseEvents(false);
 }
 document.addEventListener("mousemove", () => setClickThrough(false));
-document.addEventListener("mouseleave", () => setClickThrough(true));
-window.addEventListener("blur", () => setClickThrough(true));
+// Stay interactive while resizing, even when the pointer leaves the window.
+document.addEventListener("mouseleave", () => {
+  if (!resizing) setClickThrough(true);
+});
+window.addEventListener("blur", () => {
+  if (!resizing) setClickThrough(true);
+});
+
+// ── Resize grip (bottom-right corner) ───────────────────────────────────────
+const gripEl = document.getElementById("grip");
+gripEl.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  gripEl.setPointerCapture(e.pointerId);
+  resizing = { x: e.screenX, y: e.screenY };
+  window.api.overlayResizeStart();
+});
+gripEl.addEventListener("pointermove", (e) => {
+  if (!resizing) return;
+  window.api.overlayResizeTo(e.screenX - resizing.x, e.screenY - resizing.y);
+});
+function endResize(e) {
+  if (!resizing) return;
+  resizing = null;
+  if (gripEl.hasPointerCapture?.(e.pointerId)) gripEl.releasePointerCapture(e.pointerId);
+  window.api.overlayResizeEnd();
+}
+gripEl.addEventListener("pointerup", endResize);
+gripEl.addEventListener("pointercancel", endResize);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) setClickThrough(true);
 });

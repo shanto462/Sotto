@@ -26,8 +26,17 @@ uses [Semantic Versioning](https://semver.org/).
   (`npm run cert:mac`, once), so Screen Recording, Microphone, and
   Accessibility grants survive rebuilds.
 
+- The overlay stays where you put it. "Place overlay over Chrome" became
+  "Start over Chrome", off by default, and only applies until you move the
+  overlay; Sotto's own repositioning is no longer saved as your position.
+  Preferences → General has a Reset Position button.
+
 ### Fixed
 
+- Resizing the overlay from its bottom-right grip now works (it relied on OS
+  edge-resizing, which is unreliable on a frameless transparent window).
+- The local server starts at launch, so setup can detect the Chrome
+  extension; the extension shows a "!" badge while Sotto is unreachable.
 - The "Max recording length" setting is now enforced.
 - After a failed voice request, the voice shortcut works again without
   needing a successful answer first.
