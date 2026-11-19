@@ -2,6 +2,10 @@
    Three themes: dark (default), light, auto (follows prefers-color-scheme).
    Apply via <html data-theme="dark|light|auto">. */
 
+/* The `hidden` attribute must win over component display rules (.banner,
+   .row, … set display: flex), or toggling it from script does nothing. */
+[hidden] { display: none !important; }
+
 :root,
 :root[data-theme="dark"] {
   --color-bg:            #15181f;
