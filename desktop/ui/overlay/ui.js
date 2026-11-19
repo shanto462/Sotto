@@ -33,7 +33,7 @@ window.api.onPromptToast(({ name }) => {
 
 // ── Click-through ↔ interactive toggle ───────────────────────────────────────
 let clickThrough = true;
-let resizing = null; // { x, y } screen point where a grip drag began
+let dragging = null; // { x, y } screen point where a move/resize drag began
 function setClickThrough(value) {
   if (value === clickThrough) return;
   clickThrough = value;
@@ -41,35 +41,42 @@ function setClickThrough(value) {
   else window.api.setIgnoreMouseEvents(false);
 }
 document.addEventListener("mousemove", () => setClickThrough(false));
-// Stay interactive while resizing, even when the pointer leaves the window.
+// Stay interactive while dragging, even when the pointer leaves the window.
 document.addEventListener("mouseleave", () => {
-  if (!resizing) setClickThrough(true);
+  if (!dragging) setClickThrough(true);
 });
 window.addEventListener("blur", () => {
-  if (!resizing) setClickThrough(true);
+  if (!dragging) setClickThrough(true);
 });
 
-// ── Resize grip (bottom-right corner) ───────────────────────────────────────
-const gripEl = document.getElementById("grip");
-gripEl.addEventListener("pointerdown", (e) => {
-  if (e.button !== 0) return;
-  e.preventDefault();
-  gripEl.setPointerCapture(e.pointerId);
-  resizing = { x: e.screenX, y: e.screenY };
-  window.api.overlayResizeStart();
-});
-gripEl.addEventListener("pointermove", (e) => {
-  if (!resizing) return;
-  window.api.overlayResizeTo(e.screenX - resizing.x, e.screenY - resizing.y);
-});
-function endResize(e) {
-  if (!resizing) return;
-  resizing = null;
-  if (gripEl.hasPointerCapture?.(e.pointerId)) gripEl.releasePointerCapture(e.pointerId);
-  window.api.overlayResizeEnd();
+// ── Move (top strip) and resize (bottom-right grip) ─────────────────────────
+// Both report the pointer offset since the drag began; main applies it to
+// the window bounds captured at the start, and saves the result.
+function bindWindowDrag(el, mode) {
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+    dragging = { x: e.screenX, y: e.screenY };
+    window.api.overlayDragStart();
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    window.api.overlayDragTo(mode, e.screenX - dragging.x, e.screenY - dragging.y);
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = null;
+    el.classList.remove("dragging");
+    if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    window.api.overlayDragEnd();
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
 }
-gripEl.addEventListener("pointerup", endResize);
-gripEl.addEventListener("pointercancel", endResize);
+bindWindowDrag(document.getElementById("strip"), "move");
+bindWindowDrag(document.getElementById("grip"), "resize");
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) setClickThrough(true);
 });

@@ -35,19 +35,15 @@
         letter-spacing: 0.06em;
         text-transform: uppercase;
         font-weight: 600;
-        /* The strip is the drag handle for the frameless window. */
-        -webkit-app-region: drag;
+        /* The strip is the drag handle for the frameless window. Dragging is
+           done in ui.js → main, not with -webkit-app-region: drag: a native
+           drag region swallows mouse events, so the overlay never left
+           click-through mode and the drag never reached it. */
         cursor: grab;
         user-select: none;
+        touch-action: none;
       }
-      #strip:active { cursor: grabbing; }
-      /* Interactive chips inside the strip must opt out of dragging so they
-         stay clickable / hoverable. Currently we have no actual click targets
-         but this keeps future ones working without surprises. */
-      #strip .dot,
-      #strip .prompt-chip,
-      #strip .source-chip,
-      #strip .hint { -webkit-app-region: no-drag; }
+      #strip.dragging { cursor: grabbing; }
       #strip .dot {
         width: 7px;
         height: 7px;

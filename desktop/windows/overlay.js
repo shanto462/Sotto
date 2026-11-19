@@ -121,6 +121,20 @@ export function placeOverlayDefault(win) {
 }
 
 /**
+ * Move driven by dragging the overlay's top strip. Keeps the strip on some
+ * display so the overlay can't be dragged out of reach.
+ */
+export function moveOverlayFrom(win, startBounds, dx, dy) {
+  if (!win || !startBounds) return;
+  let x = Math.round(startBounds.x + dx);
+  let y = Math.round(startBounds.y + dy);
+  const { workArea } = screen.getDisplayNearestPoint({ x: x + 40, y: y + 10 });
+  x = Math.min(Math.max(x, workArea.x - startBounds.width + 80), workArea.x + workArea.width - 80);
+  y = Math.min(Math.max(y, workArea.y), workArea.y + workArea.height - 40);
+  win.setPosition(x, y);
+}
+
+/**
  * Resize driven by the overlay's corner grip. The window is frameless and
  * transparent, where OS edge-resizing is unreliable, so the renderer reports
  * the pointer offset since the drag started and we apply it here.

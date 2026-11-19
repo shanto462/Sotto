@@ -49,6 +49,7 @@ import {
 } from "./windows/onboarding.js";
 import {
   createOverlayWindow,
+  moveOverlayFrom,
   placeOverlayDefault,
   positionOverChrome,
   resizeOverlayFrom,
@@ -130,7 +131,7 @@ let onboardingWin = null;
 let server = null;
 let runtimeStarted = false; // shortcuts, history, auto-launch (after setup)
 let ignoreOverlaySaveUntil = 0; // skip saving bounds Sotto set itself
-let overlayResizeStart = null; // bounds when a grip resize began
+let overlayDragStart = null; // overlay bounds when a move/resize drag began
 
 // ── Window factories (lazy) ──────────────────────────────────────────────────
 function ensureOverlay() {
@@ -675,18 +676,19 @@ function registerIPC() {
     overlayWin?.setIgnoreMouseEvents(!!ignore, options ?? undefined);
   });
 
-  // Overlay resize from its corner grip (renderer sends the pointer offset
-  // since the drag began). The resulting resize events are saved like any
-  // user resize.
-  ipcMain.on("overlay:resize-start", () => {
-    overlayResizeStart = overlayWin?.getBounds() ?? null;
+  // Overlay move (top strip) and resize (corner grip). The renderer sends the
+  // pointer offset since the drag began; the resulting move/resize events are
+  // saved like any user change.
+  ipcMain.on("overlay:drag-start", () => {
+    overlayDragStart = overlayWin?.getBounds() ?? null;
   });
-  ipcMain.on("overlay:resize-to", (_e, dx, dy) => {
+  ipcMain.on("overlay:drag-to", (_e, mode, dx, dy) => {
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
-    resizeOverlayFrom(overlayWin, overlayResizeStart, dx, dy);
+    if (mode === "move") moveOverlayFrom(overlayWin, overlayDragStart, dx, dy);
+    else if (mode === "resize") resizeOverlayFrom(overlayWin, overlayDragStart, dx, dy);
   });
-  ipcMain.on("overlay:resize-end", () => {
-    overlayResizeStart = null;
+  ipcMain.on("overlay:drag-end", () => {
+    overlayDragStart = null;
   });
 
   // Preferences → "Reset position": forget the saved spot.
