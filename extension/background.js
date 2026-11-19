@@ -40,6 +40,23 @@ async function fetchWithRetry(url, options = {}, { attempts = 2, delayMs = 600 }
   throw lastError ?? new Error("fetch failed");
 }
 
+// ── Toolbar badge ───────────────────────────────────────────────────────────
+// The in-page toast can't show on chrome:// pages or tabs opened before the
+// extension loaded, so the toolbar icon also shows whether Sotto is reachable.
+const DEFAULT_TITLE = "Sotto — press Ctrl+M to ask";
+
+function setReachable(ok, detail = "") {
+  try {
+    chrome.action.setBadgeText({ text: ok ? "" : "!" });
+    if (!ok) chrome.action.setBadgeBackgroundColor({ color: "#d93025" });
+    chrome.action.setTitle({
+      title: ok ? DEFAULT_TITLE : `Sotto app not reachable${detail ? ` — ${detail}` : ""}. Is it running?`,
+    });
+  } catch {
+    /* action API unavailable */
+  }
+}
+
 // ── Heartbeat ───────────────────────────────────────────────────────────────
 let lastHeartbeatAt = 0;
 const HEARTBEAT_DEDUPE_MS = 4_000;
@@ -51,8 +68,10 @@ async function sendHeartbeat(reason = "") {
   try {
     const r = await fetchWithRetry(HEARTBEAT, { method: "POST" }, { attempts: 1, delayMs: 400 });
     if (!r.ok) warn(`heartbeat non-2xx: ${r.status} (${reason})`);
+    setReachable(r.ok);
   } catch {
-    // Sotto not running or unreachable — silent (alarms and tab events will retry).
+    // Sotto not running or unreachable (alarms and tab events will retry).
+    setReachable(false);
   }
 }
 
@@ -153,6 +172,7 @@ async function runTrigger(source) {
     const text = await r.text();
     const elapsed = Date.now() - startedAt;
     log(`fetch · status=${r.status} · elapsed=${elapsed}ms`);
+    setReachable(true);
 
     let body = null;
     try {
@@ -174,6 +194,7 @@ async function runTrigger(source) {
     await showToastOnActiveTab(`Answer in overlay${ms}`, "ok");
   } catch (e) {
     err(`fetch failed after retry: ${e?.message ?? e}`);
+    setReachable(false);
     await showToastOnActiveTab(
       "Sotto app not reachable — is it running?",
       "error",

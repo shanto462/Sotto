@@ -126,6 +126,7 @@ app.on("web-contents-created", (_e, contents) => {
 let overlayWin = null;
 let onboardingWin = null;
 let server = null;
+let runtimeStarted = false; // shortcuts, history, auto-launch (after setup)
 
 // ── Window factories (lazy) ──────────────────────────────────────────────────
 function ensureOverlay() {
@@ -176,7 +177,7 @@ function openOnboarding() {
     updateDockVisibility();
     // If user closed without finishing, start the runtime anyway so the app
     // remains usable from the tray (they can re-run setup from Preferences).
-    if (!loadSettings().onboardingComplete && !server) {
+    if (!loadSettings().onboardingComplete && !runtimeStarted) {
       await startRuntime();
     }
   });
@@ -694,6 +695,8 @@ function applyAutoLaunch(enabled) {
 
 // ── Runtime (started after onboarding completes or immediately on return) ────
 async function startRuntime() {
+  if (runtimeStarted) return;
+  runtimeStarted = true;
   hydrateProcessEnv();
 
   const settings = loadSettings();
@@ -748,6 +751,15 @@ async function startRuntime() {
     logger.warn(f, "global shortcut registration failed");
   }
 
+  await startServer();
+}
+
+// The local server the Chrome extension talks to. It starts at launch, before
+// setup is finished, so the setup assistant's extension step can see the
+// extension's heartbeat. Asking before setup is done gets a clear error from
+// handleAsk (no key / no model) instead of "app not reachable".
+async function startServer() {
+  if (server) return;
   server = createSolverServer({
     logger,
     mode: "desktop",
@@ -811,6 +823,8 @@ app.whenReady().then(async () => {
     onClearHistory: () => clearHistory(),
     onQuit: () => app.quit(),
   });
+
+  await startServer();
 
   if (!settings.onboardingComplete) {
     openOnboarding();
