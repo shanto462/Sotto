@@ -6,10 +6,9 @@
   "keywords": [
     "electron",
     "claude",
-    "anthropic",
+    "openrouter",
     "overlay",
     "chrome-extension",
-    "whisper",
     "tray-app",
     "macos",
     "windows"
@@ -32,7 +31,7 @@
     "test": "node --test",
     "check": "npm run lint && npm test",
     "icons": "node assets/generate-icons.js",
-    "build:mac": "electron-builder --mac dir",
+    "build:mac": "electron-builder --mac dir && node scripts/sign-mac.mjs",
     "build:win": "electron-builder --win dir",
     "build:dmg": "electron-builder --mac dmg",
     "build:exe": "electron-builder --win portable",
@@ -40,21 +39,22 @@
     "run:win": "start \"\" dist/win-unpacked/Sotto.exe",
     "dev:mac": "npm run build:mac && npm run run:mac",
     "dev:win": "npm run build:win && npm run run:win",
-    "reset": "bash scripts/reset.sh"
+    "reset": "bash scripts/reset.sh",
+    "sign:mac": "node scripts/sign-mac.mjs",
+    "cert:mac": "bash scripts/make-cert.sh"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.96.0",
     "highlight.js": "^11.12.0",
     "marked": "^18.1.0",
     "marked-highlight": "^2.2.4",
-    "openai": "^6.49.0",
     "pino": "^10.4.0",
     "pino-pretty": "^13.2.0"
   },
   "devDependencies": {
+    "@electron/osx-sign": "^1.3.3",
     "@eslint/js": "^9.39.5",
     "electron": "^42.11.10",
     "electron-builder": "^26.15.3",
@@ -82,7 +82,9 @@
       "assets/icon-tray-Template.png",
       "assets/icon-tray-Template@2x.png",
       "assets/icon-tray-busy.png",
+      "assets/icon-tray-busy@2x.png",
       "assets/icon-tray-warn.png",
+      "assets/icon-tray-warn@2x.png",
       "LICENSE",
       "package.json"
     ],
@@ -98,7 +100,7 @@
       "extendInfo": {
         "LSUIElement": true,
         "NSScreenCaptureUsageDescription": "Sotto captures the active Chrome window so Claude can answer questions about it.",
-        "NSMicrophoneUsageDescription": "Sotto records short voice queries to send to OpenAI Whisper for transcription.",
+        "NSMicrophoneUsageDescription": "Sotto records short voice queries and sends them through OpenRouter for transcription.",
         "NSAppleEventsUsageDescription": "Sotto uses AppleScript to find the focused Google Chrome window."
       }
     },

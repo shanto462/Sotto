@@ -169,23 +169,53 @@ let analyser = null;
 let waveformRAF = null;
 let recStartedAt = 0;
 let recTimerInterval = null;
+let recLimitTimer = null;
+let voiceBusy = false; // a clip is being transcribed / answered
 
-window.api.onVoiceToggle(async () => {
+// Share the mic instead of taking it over. Chromium's echo cancellation,
+// noise suppression and auto gain switch macOS into its voice-processing
+// mode, which ducks other apps' audio and alters their mic signal (a call in
+// Zoom or Meet, say). Raw capture leaves other apps alone; the transcription
+// model doesn't need the clean-up.
+const MIC_CONSTRAINTS = {
+  audio: {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: 1,
+  },
+};
+
+window.api.onVoiceToggle(async (opts) => {
   if (mediaRecorder?.state === "recording") {
     stopRecording();
     return;
   }
-  if (audioChunks.length > 0) return; // mid-transcription, ignore
-  await startRecording();
+  if (voiceBusy) return; // mid-transcription, ignore
+  await startRecording(opts?.maxSec);
 });
 
-async function startRecording() {
+function releaseMic() {
+  audioStream?.getTracks().forEach((t) => t.stop());
+  audioStream = null;
+  teardownWaveform();
+  stopTimer();
+  if (recLimitTimer) clearTimeout(recLimitTimer);
+  recLimitTimer = null;
+}
+
+async function startRecording(maxSec) {
   try {
-    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioStream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
   } catch (e) {
+    const busy = e?.name === "NotReadableError";
     contentEl.innerHTML = `
       <div class="status status-error">
-        <span>⚠ Microphone access denied. Grant it in System Settings → Privacy → Microphone.</span>
+        <span>⚠ ${
+          busy
+            ? "The microphone couldn't be opened. Another app may be holding it exclusively."
+            : "Microphone access denied. Grant it in System Settings → Privacy &amp; Security → Microphone."
+        }</span>
       </div>
     `;
     return;
@@ -200,16 +230,25 @@ async function startRecording() {
     if (e.data?.size > 0) audioChunks.push(e.data);
   };
   mediaRecorder.onstop = async () => {
-    audioStream?.getTracks().forEach((t) => t.stop());
-    teardownWaveform();
+    // Give the mic back the moment recording ends, before any processing.
+    releaseMic();
     const blob = new Blob(audioChunks, {
       type: mediaRecorder.mimeType || "audio/webm",
     });
-    const buf = await blob.arrayBuffer();
-    window.api.sendAudio(buf);
+    audioChunks = [];
+    if (blob.size === 0) return;
+    voiceBusy = true;
+    try {
+      const wav = await toWav16kMono(await blob.arrayBuffer());
+      window.api.sendAudio(wav);
+    } catch (err) {
+      voiceBusy = false;
+      renderStatus({ state: "error", error: `Couldn't read the recording: ${err?.message ?? err}` });
+    }
   };
   mediaRecorder.start();
   recStartedAt = Date.now();
+  if (maxSec > 0) recLimitTimer = setTimeout(stopRecording, maxSec * 1000);
   renderRecordingUI();
   startWaveform();
   startTimer();
@@ -218,6 +257,43 @@ async function startRecording() {
 function stopRecording() {
   if (mediaRecorder?.state === "recording") mediaRecorder.stop();
   stopTimer();
+}
+
+// Decode the recording and re-encode it as 16 kHz mono 16-bit WAV, the one
+// audio format OpenRouter documents for every audio-capable model. 16 kHz
+// mono is plenty for speech and keeps a 30 s clip around 1 MB.
+async function toWav16kMono(arrayBuffer) {
+  const RATE = 16000;
+  const decodeCtx = new OfflineAudioContext(1, 1, RATE);
+  const decoded = await decodeCtx.decodeAudioData(arrayBuffer);
+  const length = Math.ceil(decoded.duration * RATE);
+  const ctx = new OfflineAudioContext(1, Math.max(length, 1), RATE);
+  const src = ctx.createBufferSource();
+  src.buffer = decoded;
+  src.connect(ctx.destination); // downmixes to mono
+  src.start();
+  const samples = (await ctx.startRendering()).getChannelData(0);
+
+  const out = new DataView(new ArrayBuffer(44 + samples.length * 2));
+  const str = (o, t) => [...t].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF");
+  out.setUint32(4, 36 + samples.length * 2, true);
+  str(8, "WAVE");
+  str(12, "fmt ");
+  out.setUint32(16, 16, true); // PCM chunk size
+  out.setUint16(20, 1, true); // PCM
+  out.setUint16(22, 1, true); // mono
+  out.setUint32(24, RATE, true);
+  out.setUint32(28, RATE * 2, true); // byte rate
+  out.setUint16(32, 2, true); // block align
+  out.setUint16(34, 16, true); // bits per sample
+  str(36, "data");
+  out.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const v = Math.max(-1, Math.min(1, samples[i]));
+    out.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+  }
+  return out.buffer;
 }
 
 function pickAudioMime() {
@@ -308,9 +384,12 @@ function stopTimer() {
 }
 
 // ── Wire up ─────────────────────────────────────────────────────────────────
-window.api.onStatus(renderStatus);
+window.api.onStatus((data) => {
+  if (data?.state === "error") voiceBusy = false; // unblock further voice toggles
+  renderStatus(data);
+});
 window.api.onAnswer((data) => {
-  audioChunks = []; // unblock further voice toggles
+  voiceBusy = false; // unblock further voice toggles
   renderAnswer(data);
 });
 window.api.onHistoryUpdate(renderHistory);

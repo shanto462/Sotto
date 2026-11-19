@@ -13,7 +13,7 @@ export default [
   },
   // Electron main process, shared library, scripts and tests (Node, ESM).
   {
-    files: ["desktop/*.js", "desktop/windows/**/*.js", "src/**/*.js", "assets/**/*.js", "test/**/*.js", "*.js"],
+    files: ["desktop/*.js", "desktop/windows/**/*.js", "src/**/*.js", "assets/**/*.js", "test/**/*.js", "scripts/**/*.mjs", "*.js"],
     languageOptions: { sourceType: "module", globals: globals.node },
   },
   // Preload scripts run as CommonJS inside the sandboxed renderer.

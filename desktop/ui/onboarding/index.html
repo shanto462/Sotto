@@ -1,219 +1,316 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="mac-app">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none';" />
-    <title>Welcome to Sotto</title>
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none';" />
+    <title>Set Up Sotto</title>
     <link rel="stylesheet" href="../shared/tokens.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header id="titlebar"></header>
-
-    <main id="wizard">
-      <!-- Step 1: Welcome -->
-      <section class="step" data-step="1">
-        <div class="hero">
-          <div class="hero-mark">S</div>
-          <h1>Welcome to Sotto</h1>
-          <p class="lede">
-            Press <kbd>Ctrl+M</kbd> in Chrome — Sotto captures the window, asks Claude
-            to explain or recap it, and shows the answer in an overlay that's hidden
-            from screen-share.
-          </p>
-        </div>
-
-        <div class="card">
-          <p class="card-title">Personal & Educational Use License</p>
-          <p class="card-body dim">
-            Sotto is for lecturers, presenters, and streamers — not for interviews,
-            exams, or any setting where AI use isn't openly disclosed. See the full
-            license for the complete list.
-          </p>
-          <label class="check">
-            <input type="checkbox" id="license-accept" />
-            <span>I've read and accept the acceptable-use terms.</span>
-          </label>
-          <button class="btn btn-link" id="open-license">View LICENSE ↗</button>
-        </div>
-      </section>
-
-      <!-- Step 2: API keys -->
-      <section class="step" data-step="2" hidden>
-        <div class="step-header">
-          <h2>API keys</h2>
-          <p class="dim">Stored in your OS keychain — never written to disk in plaintext.</p>
-        </div>
-
-        <div class="field">
-          <div class="field-label">
-            <label for="key-anthropic">Anthropic API key</label>
-            <span class="chip" id="key-anthropic-status">required</span>
-          </div>
-          <div class="field-input">
-            <input class="input" type="password" id="key-anthropic" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
-            <button class="btn btn-ghost reveal" data-target="key-anthropic" title="Reveal / hide">👁</button>
-          </div>
-          <p class="field-hint">
-            Get one at
-            <button class="btn btn-link" data-href="https://console.anthropic.com/settings/keys">console.anthropic.com ↗</button>
-          </p>
-        </div>
-
-        <div class="field">
-          <div class="field-label">
-            <label for="key-openai">OpenAI API key</label>
-            <span class="chip" id="key-openai-status">optional · for voice</span>
-          </div>
-          <div class="field-input">
-            <input class="input" type="password" id="key-openai" placeholder="sk-…" autocomplete="off" spellcheck="false" />
-            <button class="btn btn-ghost reveal" data-target="key-openai" title="Reveal / hide">👁</button>
-          </div>
-          <p class="field-hint">
-            Used for Whisper voice transcription. Get one at
-            <button class="btn btn-link" data-href="https://platform.openai.com/api-keys">platform.openai.com ↗</button>
-          </p>
-        </div>
-      </section>
-
-      <!-- Step 3: Permissions -->
-      <section class="step" data-step="3" hidden>
-        <div class="step-header">
-          <h2>System permissions</h2>
-          <p class="dim">Required by macOS / Windows for capture, voice, and shortcuts.</p>
-        </div>
-
-        <div id="dev-mode-banner" class="dev-banner" hidden>
-          <span>⚠</span>
+    <div class="window">
+      <!-- Sidebar: step list (like Installer.app) -->
+      <aside class="sidebar" aria-label="Setup steps">
+        <div class="sidebar-drag"></div>
+        <div class="sidebar-brand">
+          <img src="../../../assets/icon-app.png" alt="" class="brand-icon" />
           <div>
-            <div class="row-label">Running unpackaged — permissions will be granted to your terminal app</div>
-            <div class="row-hint">
-              macOS attributes permission prompts to the process that launched Electron
-              (e.g. Terminal, iTerm, Ghostty). For permissions to scope to "Sotto" specifically,
-              run <code>npm run package</code> once and launch <code>dist/mac/Sotto.app</code>.
-            </div>
+            <div class="brand-name">Sotto</div>
+            <div class="brand-sub">Setup</div>
           </div>
         </div>
+        <ol class="step-list" id="step-list"></ol>
+      </aside>
 
-        <ul class="perm-list" id="permissions">
-          <li class="perm-item" data-perm="screen" data-kind="screen">
-            <div class="perm-icon">●</div>
-            <div class="perm-body">
-              <div class="perm-name">Screen Recording</div>
-              <div class="perm-desc">Required to capture the active Chrome window.</div>
-            </div>
-            <button class="btn perm-request">Request</button>
-          </li>
-          <li class="perm-item" data-perm="mic" data-kind="microphone">
-            <div class="perm-icon">●</div>
-            <div class="perm-body">
-              <div class="perm-name">Microphone</div>
-              <div class="perm-desc">Needed only for the voice trigger (Ctrl+Shift+V).</div>
-            </div>
-            <button class="btn perm-request">Request</button>
-          </li>
-          <li class="perm-item" data-perm="accessibility" data-kind="accessibility">
-            <div class="perm-icon">●</div>
-            <div class="perm-body">
-              <div class="perm-name">Accessibility (macOS only)</div>
-              <div class="perm-desc">Lets Ctrl+B toggle the overlay from any app.</div>
-            </div>
-            <button class="btn perm-request">Request</button>
-          </li>
-        </ul>
+      <!-- Main pane -->
+      <section class="main">
+        <div class="main-drag"></div>
 
-        <div id="perm-restart-banner" class="restart-banner" hidden>
-          <span>↻ Restart required for screen recording permission to take effect.</span>
-          <button class="btn btn-primary" id="perm-restart">Restart Sotto</button>
+        <div class="pages" id="pages">
+          <!-- 1. Welcome -->
+          <section class="page" data-step="welcome" data-title="Welcome">
+            <div class="hero">
+              <img src="../../../assets/icon-app.png" alt="" class="hero-icon" />
+              <h1 tabindex="-1">Welcome to Sotto</h1>
+              <p class="lede">
+                Quiet answers next to your real work. Sotto looks at the Chrome window
+                you're on, asks Claude about it, and shows the answer in an overlay
+                that stays out of screen shares.
+              </p>
+            </div>
+
+            <ul class="features">
+              <li>
+                <span class="feat-icon blue" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6"/></svg>
+                </span>
+                <div>
+                  <div class="feat-title">Ask about the current window</div>
+                  <div class="feat-desc">Press <kbd>Control M</kbd> in Chrome to capture the window and get an explanation, recap, or definition.</div>
+                </div>
+              </li>
+              <li>
+                <span class="feat-icon purple" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4.5 10a5.5 5.5 0 0 0 11 0M10 15.5v2"/></svg>
+                </span>
+                <div>
+                  <div class="feat-title">Ask out loud</div>
+                  <div class="feat-desc">Press <kbd>Control Shift V</kbd> anywhere to ask a quick question by voice.</div>
+                </div>
+              </li>
+              <li>
+                <span class="feat-icon green" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10Z"/><path d="M3 17 17 3"/></svg>
+                </span>
+                <div>
+                  <div class="feat-title">Private on screen shares</div>
+                  <div class="feat-desc">The overlay is excluded from screen capture, like speaker notes on a podium.</div>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <!-- 2. License -->
+          <section class="page" data-step="license" data-title="License" hidden>
+            <header class="page-head">
+              <h2 tabindex="-1">Acceptable use</h2>
+              <p class="sub">Sotto is licensed for personal and educational use. Please read the terms before you continue.</p>
+            </header>
+
+            <div class="license-box group-box" tabindex="0" aria-label="License summary">
+              <p><strong>Sotto must not be used to:</strong></p>
+              <ul>
+                <li>gain an undisclosed advantage in an exam, certification, interview, assessment, or any other evaluation where AI assistance isn't openly disclosed and permitted;</li>
+                <li>deceive anyone about the source of your work, knowledge, or qualifications;</li>
+                <li>evade proctoring, monitoring, or screen-sharing tools, including by using the hidden overlay where its presence hasn't been disclosed;</li>
+                <li>break an academic-integrity policy, employment agreement, or platform terms, or any law or AI provider's usage policy.</li>
+              </ul>
+              <p><strong>Good uses include</strong> personal learning and productivity, speaker notes during streams or recordings you control, reading help for your own materials, and accessibility aids.</p>
+            </div>
+
+            <div class="license-actions">
+              <label class="mac-check">
+                <input type="checkbox" id="license-accept" />
+                <span>I have read and agree to the Personal &amp; Educational Use License.</span>
+              </label>
+              <button type="button" class="btn btn-link" id="open-license">Read Full License…</button>
+            </div>
+          </section>
+
+          <!-- 3. OpenRouter key -->
+          <section class="page" data-step="key" data-title="OpenRouter Key" hidden>
+            <header class="page-head">
+              <h2 tabindex="-1">Connect OpenRouter</h2>
+              <p class="sub">
+                Sotto reaches Claude through OpenRouter. One key covers both answers and
+                voice transcription.
+              </p>
+            </header>
+
+            <div class="group-box pad">
+              <label class="field-label" for="key-openrouter">OpenRouter API key</label>
+              <div id="key-field"></div>
+            </div>
+
+            <div class="key-help">
+              <button type="button" class="btn btn-link" data-href="https://openrouter.ai/settings/keys">Get a key at openrouter.ai ↗</button>
+              <p class="footnote">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+                <span>The key is encrypted in your system keychain and never written to disk in plain text.</span>
+              </p>
+            </div>
+          </section>
+
+          <!-- 4. Models -->
+          <section class="page" data-step="models" data-title="Models" hidden>
+            <header class="page-head">
+              <h2 tabindex="-1">Choose models</h2>
+              <p class="sub">Pick the Claude model that answers and the model that transcribes voice. You can change both later in Settings.</p>
+            </header>
+
+            <h3 class="section-label" id="chat-label">Answers</h3>
+            <div id="chat-picker" class="picker-onboarding"></div>
+
+            <div class="effort-row" id="effort-row" hidden>
+              <div>
+                <div class="effort-title">Effort</div>
+                <div class="effort-sub">Higher effort thinks longer: better answers, but slower and costlier.</div>
+              </div>
+              <div class="seg" id="effort-seg" role="radiogroup" aria-label="Effort"></div>
+              <span class="chip" id="effort-locked" hidden></span>
+            </div>
+
+            <h3 class="section-label" id="audio-label">Voice transcription</h3>
+            <div id="audio-picker" class="picker-onboarding"></div>
+          </section>
+
+          <!-- 5. Permissions -->
+          <section class="page" data-step="permissions" data-title="Permissions" hidden>
+            <header class="page-head">
+              <h2 tabindex="-1">Allow access</h2>
+              <p class="sub" id="perm-sub">macOS asks before an app can see your screen, hear your microphone, or respond to keys in other apps.</p>
+            </header>
+
+            <div id="dev-mode-banner" class="banner warn" hidden>
+              <span class="banner-glyph">!</span>
+              <div>
+                <div class="banner-title">Running from source</div>
+                <div class="banner-text">
+                  macOS gives these permissions to the app that launched Sotto (your terminal),
+                  not to Sotto. Build the app with <code>npm run build:mac</code> and open
+                  <code>Sotto.app</code> so the permissions belong to Sotto.
+                </div>
+              </div>
+            </div>
+
+            <div class="group-box" id="permissions">
+              <div class="row-item perm" data-perm="screen" data-kind="screen" data-pane="screen">
+                <span class="perm-icon blue" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="3.5" width="15" height="11" rx="2"/><path d="M7 17.5h6"/></svg>
+                </span>
+                <div class="row-main">
+                  <div class="row-title">Screen Recording</div>
+                  <div class="row-sub">Captures the active Chrome window when you press Control M.</div>
+                </div>
+                <span class="chip perm-chip">Checking…</span>
+                <button type="button" class="btn btn-sm perm-action" hidden></button>
+              </div>
+              <div class="row-item perm" data-perm="mic" data-kind="microphone" data-pane="microphone">
+                <span class="perm-icon orange" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="2.5" width="6" height="10" rx="3"/><path d="M4.5 10a5.5 5.5 0 0 0 11 0M10 15.5v2"/></svg>
+                </span>
+                <div class="row-main">
+                  <div class="row-title">Microphone</div>
+                  <div class="row-sub">Records voice questions. Only needed for Control Shift V.</div>
+                </div>
+                <span class="chip perm-chip">Checking…</span>
+                <button type="button" class="btn btn-sm perm-action" hidden></button>
+              </div>
+              <div class="row-item perm" data-perm="accessibility" data-kind="accessibility" data-pane="accessibility">
+                <span class="perm-icon gray" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="4" r="1.6"/><path d="M4 7.5h12M10 7.5v4.5m0 0-3 5.5m3-5.5 3 5.5"/></svg>
+                </span>
+                <div class="row-main">
+                  <div class="row-title">Accessibility</div>
+                  <div class="row-sub">Lets Sotto's shortcuts, like Control B, work from any app.</div>
+                </div>
+                <span class="chip perm-chip">Checking…</span>
+                <button type="button" class="btn btn-sm perm-action" hidden></button>
+              </div>
+            </div>
+
+            <div id="perm-restart-banner" class="banner info" hidden>
+              <span class="banner-glyph">↻</span>
+              <div class="banner-text">After you allow Screen Recording in System Settings, Sotto needs to reopen.</div>
+              <button type="button" class="btn btn-sm" id="perm-restart">Quit &amp; Reopen</button>
+            </div>
+
+            <p class="footnote">You can change these any time in System Settings → Privacy &amp; Security.</p>
+          </section>
+
+          <!-- 6. Chrome extension -->
+          <section class="page" data-step="extension" data-title="Chrome Extension" hidden>
+            <header class="page-head">
+              <h2 tabindex="-1">Add the Chrome extension</h2>
+              <p class="sub">The extension listens for Control M in Chrome and tells Sotto which window to capture.</p>
+            </header>
+
+            <div class="group-box">
+              <div class="row-item">
+                <span class="perm-icon blue" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="3"/><path d="M10 7h7M7.4 11.5 3.9 5.5M12.6 11.5 9 17.5"/></svg>
+                </span>
+                <div class="row-main">
+                  <div class="row-title">Sotto for Chrome</div>
+                  <div class="row-sub" id="ext-detail">Waiting for the extension to connect…</div>
+                </div>
+                <span class="chip" id="ext-chip"><span class="spinner"></span>Waiting</span>
+              </div>
+            </div>
+
+            <div class="seg ext-seg" role="tablist" aria-label="Install type">
+              <button type="button" class="seg-btn active" role="tab" aria-selected="true" data-tab="install">First Install</button>
+              <button type="button" class="seg-btn" role="tab" aria-selected="false" data-tab="reload">Already Installed</button>
+            </div>
+
+            <div class="ext-pane" data-pane="install" role="tabpanel">
+              <ol class="steps">
+                <li>Open <strong>chrome://extensions</strong> and turn on <strong>Developer mode</strong> (top right).</li>
+                <li>Click <strong>Load unpacked</strong> and choose this folder:</li>
+              </ol>
+              <div class="path-box">
+                <code id="ext-path">…</code>
+                <button type="button" class="btn btn-sm" id="ext-copy">Copy</button>
+                <button type="button" class="btn btn-sm" id="ext-open-folder">Show in Finder</button>
+              </div>
+              <ol class="steps" start="3">
+                <li>Reload any open tab so the extension can attach.</li>
+              </ol>
+            </div>
+
+            <div class="ext-pane" data-pane="reload" role="tabpanel" hidden>
+              <ol class="steps">
+                <li>Open <strong>chrome://extensions</strong> and find <strong>Sotto</strong>.</li>
+                <li>Click its <strong>reload</strong> button (↻).</li>
+                <li>Reload any open tab. The status above turns green within a few seconds.</li>
+              </ol>
+            </div>
+
+            <div class="ext-actions">
+              <button type="button" class="btn" id="ext-open-page">Open chrome://extensions</button>
+            </div>
+          </section>
+
+          <!-- 7. Done -->
+          <section class="page" data-step="done" data-title="Done" hidden>
+            <div class="hero compact">
+              <div class="done-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5 10.2 16.5 18 8"/></svg>
+              </div>
+              <h1 tabindex="-1">Sotto is ready</h1>
+              <p class="lede">It lives in your menu bar. Here's where things stand:</p>
+            </div>
+
+            <div class="group-box" id="summary">
+              <div class="row-item" data-sum="key">
+                <div class="row-main"><div class="row-title">OpenRouter key</div></div>
+                <span class="chip">…</span>
+              </div>
+              <div class="row-item" data-sum="model">
+                <div class="row-main"><div class="row-title">Answer model</div></div>
+                <span class="chip">…</span>
+              </div>
+              <div class="row-item" data-sum="perms">
+                <div class="row-main"><div class="row-title">Permissions</div></div>
+                <span class="chip">…</span>
+              </div>
+              <div class="row-item" data-sum="ext">
+                <div class="row-main"><div class="row-title">Chrome extension</div></div>
+                <span class="chip">…</span>
+              </div>
+            </div>
+
+            <div class="group-box shortcuts">
+              <div class="row-item"><div class="row-main">Ask about the current Chrome window</div><kbd>⌃M</kbd></div>
+              <div class="row-item"><div class="row-main">Ask by voice (press again to stop)</div><kbd>⌃⇧V</kbd></div>
+              <div class="row-item"><div class="row-main">Show or hide the overlay</div><kbd>⌃B</kbd></div>
+            </div>
+          </section>
         </div>
 
-        <p class="dim sm">
-          You can skip and grant later from the tray — the icon will warn you
-          until everything's in place.
-        </p>
+        <footer class="bottom-bar">
+          <div class="bottom-note" id="bottom-note" aria-live="polite"></div>
+          <div class="bottom-buttons">
+            <button type="button" class="btn btn-lg" id="btn-back">Go Back</button>
+            <button type="button" class="btn btn-lg btn-primary" id="btn-next">Continue</button>
+          </div>
+        </footer>
       </section>
+    </div>
 
-      <!-- Step 4: Chrome extension -->
-      <section class="step" data-step="4" hidden>
-        <div class="step-header">
-          <h2>Chrome extension</h2>
-          <p class="dim">The extension fires Ctrl+M without switching focus to Sotto.</p>
-        </div>
-
-        <div class="ext-status">
-          <span class="chip" id="ext-chip">checking…</span>
-          <span class="dim sm" id="ext-detail">Polling for heartbeat every 2s.</span>
-        </div>
-
-        <div class="ext-tabs" role="tablist">
-          <button class="ext-tab active" data-tab="install">First-time install</button>
-          <button class="ext-tab" data-tab="reload">Already installed?</button>
-        </div>
-
-        <div class="ext-tab-pane" data-pane="install">
-          <ol class="steps-list">
-            <li>Click <strong>Open chrome://extensions</strong> below.</li>
-            <li>Toggle <strong>Developer mode</strong> on (top-right).</li>
-            <li>Click <strong>Load unpacked</strong>.</li>
-            <li>Pick the folder shown below.</li>
-          </ol>
-
-          <div class="path-box">
-            <code id="ext-path">/path/to/sotto/extension</code>
-            <button class="btn" id="ext-copy">Copy</button>
-          </div>
-
-          <div class="row gap">
-            <button class="btn btn-primary" id="ext-open-page">Open chrome://extensions ↗</button>
-            <button class="btn" id="ext-open-folder">Open extension folder</button>
-          </div>
-        </div>
-
-        <div class="ext-tab-pane" data-pane="reload" hidden>
-          <ol class="steps-list">
-            <li>Click <strong>Open chrome://extensions</strong> below.</li>
-            <li>Find <strong>Sotto</strong> in the list.</li>
-            <li>Click the <strong>↻ reload icon</strong> on its card.</li>
-            <li>Open or refresh any web page — the heartbeat fires immediately.</li>
-          </ol>
-
-          <div class="row gap">
-            <button class="btn btn-primary" id="ext-open-page-2">Open chrome://extensions ↗</button>
-          </div>
-
-          <p class="dim sm" style="margin-top: var(--sp-3)">
-            A reload is needed after Sotto updates the extension (e.g. new permissions
-            or a new background script).
-          </p>
-        </div>
-      </section>
-
-      <!-- Finish -->
-      <section class="step" data-step="5" hidden>
-        <div class="hero">
-          <div class="hero-mark ok">✓</div>
-          <h1>You're all set</h1>
-          <p class="lede">Sotto is ready in your menu bar.</p>
-        </div>
-
-        <div class="cheat">
-          <div class="cheat-row"><kbd>Ctrl+M</kbd> <span>Ask Claude about the current Chrome tab</span></div>
-          <div class="cheat-row"><kbd>Ctrl+Shift+V</kbd> <span>Ask by voice (toggle to start/stop)</span></div>
-          <div class="cheat-row"><kbd>Ctrl+B</kbd> <span>Show / hide the overlay</span></div>
-        </div>
-      </section>
-    </main>
-
-    <footer id="footer">
-      <div id="step-dots"></div>
-      <div class="row gap">
-        <button class="btn btn-ghost" id="btn-back">Back</button>
-        <button class="btn btn-ghost" id="btn-skip">Skip</button>
-        <button class="btn btn-primary" id="btn-next">Continue</button>
-      </div>
-    </footer>
-
+    <script src="../shared/key-field.js"></script>
+    <script src="../shared/models.js"></script>
     <script src="ui.js"></script>
   </body>
 </html>

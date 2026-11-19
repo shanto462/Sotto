@@ -1,15 +1,22 @@
 import { BrowserWindow } from "electron";
 
+const isMac = process.platform === "darwin";
+
+// Setup assistant window: fixed size like Installer.app, with the traffic
+// lights inset over a translucent sidebar on macOS.
 export function createOnboardingWindow({ preloadPath, indexPath, iconPath }) {
   const win = new BrowserWindow({
-    width: 720,
-    height: 620,
-    minWidth: 600,
-    minHeight: 520,
-    title: "Welcome to Sotto",
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    backgroundColor: "#15181f",
-    resizable: true,
+    width: 780,
+    height: 560,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: "Set Up Sotto",
+    titleBarStyle: isMac ? "hiddenInset" : "default",
+    trafficLightPosition: isMac ? { x: 18, y: 18 } : undefined,
+    vibrancy: isMac ? "sidebar" : undefined,
+    visualEffectState: isMac ? "followWindow" : undefined,
+    backgroundColor: isMac ? "#00000000" : "#1e1e1e",
     show: false,
     icon: iconPath,
     webPreferences: {

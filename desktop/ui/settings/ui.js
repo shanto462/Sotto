@@ -1,32 +1,66 @@
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
+// Sotto Settings window.
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
+
+const isMac = navigator.userAgent.includes("Mac");
+if (isMac) document.documentElement.classList.add("platform-mac");
 
 let settings = null;
 let toastTimer = null;
+let permTimer = null;
 
-// Theme
+// ── Theme ───────────────────────────────────────────────────────────────────
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme || "dark";
 }
 window.api.getTheme().then(applyTheme).catch(() => applyTheme("dark"));
 window.api.onThemeChange(applyTheme);
 
-// ── Tabs ────────────────────────────────────────────────────────────────────
-$$(".tab").forEach((el) => {
-  el.addEventListener("click", () => openTab(el.dataset.tab));
+// ── Sidebar tabs ────────────────────────────────────────────────────────────
+const tabs = $$(".tab");
+tabs.forEach((el) => el.addEventListener("click", () => openTab(el.dataset.tab)));
+
+// Arrow keys move through the sidebar like a source list.
+$(".tabs").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault();
+  const i = tabs.findIndex((t) => t.classList.contains("active"));
+  const next = tabs[(i + (e.key === "ArrowDown" ? 1 : -1) + tabs.length) % tabs.length];
+  openTab(next.dataset.tab);
+  next.focus();
 });
 
 function openTab(name) {
-  $$(".tab").forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
+  if (!tabs.some((t) => t.dataset.tab === name)) name = "general";
+  tabs.forEach((el) => {
+    const on = el.dataset.tab === name;
+    el.classList.toggle("active", on);
+    el.setAttribute("aria-selected", String(on));
+    el.tabIndex = on ? 0 : -1;
+  });
   $$(".pane").forEach((p) => (p.hidden = p.dataset.pane !== name));
-  if (name === "api") loadKeyStatuses();
+  const pane = $(`.pane[data-pane="${name}"]`);
+  $("#pane-title").textContent = pane?.dataset.title || "";
+  $(".content-scroll").scrollTop = 0;
+
+  clearInterval(permTimer);
+  permTimer = null;
+  if (name === "api") loadApiTab();
   if (name === "voice") loadVoiceTab();
   if (name === "prompts") loadPromptsTab();
+  if (name === "permissions") {
+    refreshPermissions();
+    permTimer = setInterval(refreshPermissions, 2000);
+  }
   if (name === "extension") loadExtensionStatus();
   if (name === "about") loadAboutInfo();
 }
 
 window.api?.onTabOpen((tab) => openTab(tab));
+$$("[data-goto]").forEach((b) => b.addEventListener("click", () => openTab(b.dataset.goto)));
+$$("[data-href]").forEach((b) =>
+  b.addEventListener("click", () => window.api.openExternal(b.dataset.href)),
+);
 
 // ── Toast ───────────────────────────────────────────────────────────────────
 function toast(text) {
@@ -34,35 +68,46 @@ function toast(text) {
   el.textContent = text;
   el.hidden = false;
   requestAnimationFrame(() => el.classList.add("show"));
-  if (toastTimer) clearTimeout(toastTimer);
+  clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     el.classList.remove("show");
     setTimeout(() => (el.hidden = true), 250);
-  }, 1500);
+  }, 1400);
 }
 
-// ── General tab bindings ────────────────────────────────────────────────────
+// ── General ─────────────────────────────────────────────────────────────────
 async function init() {
   settings = await window.api.getSettings();
   renderGeneral();
+  openTab($(".tab.active")?.dataset.tab || "general");
 }
 
 function renderGeneral() {
-  // Segmented (theme)
-  $$(`.seg[data-setting="theme"] .seg-btn`).forEach((b) => {
-    b.classList.toggle("active", b.dataset.value === settings.theme);
-    b.onclick = () => updateSetting({ theme: b.dataset.value });
-  });
-
-  // Sliders
+  bindSeg("theme", settings.theme, (value) => ({ theme: value }));
   setSlider("opacity", settings.opacity, (v) => `${v}%`);
   setSlider("fontSize", settings.fontSize, (v) => `${v} px`);
-
-  // Toggles
   setToggle("autoLaunch", settings.autoLaunch);
   setToggle("showNotifications", settings.showNotifications);
   setToggle("positionOverChrome", settings.positionOverChrome);
   setToggle("persistHistory", settings.persistHistory);
+}
+
+function bindSeg(setting, value, toPatch) {
+  const btns = $$(`.seg[data-setting="${setting}"] .seg-btn`);
+  const mark = (v) =>
+    btns.forEach((b) => {
+      const on = b.dataset.value === v;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", String(on));
+      b.setAttribute("role", "radio");
+    });
+  mark(value);
+  btns.forEach((b) => {
+    b.onclick = () => {
+      mark(b.dataset.value);
+      updateSetting(toPatch(b.dataset.value));
+    };
+  });
 }
 
 function setSlider(id, value, format) {
@@ -87,7 +132,7 @@ async function updateSetting(patch) {
   toast("Saved");
 }
 
-// ── Prompts tab ─────────────────────────────────────────────────────────────
+// ── Prompts ─────────────────────────────────────────────────────────────────
 async function loadPromptsTab() {
   if (!settings) settings = await window.api.getSettings();
   const prompts = await window.api.listPrompts();
@@ -96,15 +141,16 @@ async function loadPromptsTab() {
   host.innerHTML = prompts
     .map(
       (p) => `
-        <div class="prompt-card${p.id === settings.activePromptId ? " active" : ""}" data-id="${p.id}">
+        <button type="button" role="radio" class="prompt-card${p.id === settings.activePromptId ? " active" : ""}"
+                data-id="${escapeHtml(p.id)}" aria-checked="${p.id === settings.activePromptId}">
           <div class="prompt-head">
-            <div class="prompt-name">${escapeHtml(p.name)}</div>
-            ${p.hotkey ? `<kbd>${escapeHtml(p.hotkey.replace("Control", "Ctrl"))}</kbd>` : ""}
+            <span class="prompt-radio" aria-hidden="true"></span>
+            <span class="prompt-name">${escapeHtml(p.name)}</span>
+            ${p.hotkey ? `<kbd>${escapeHtml(p.hotkey.replace("Control+", "⌃"))}</kbd>` : ""}
           </div>
           <div class="prompt-desc">${escapeHtml(p.description || "")}</div>
           <pre class="prompt-body">${escapeHtml(p.body)}</pre>
-        </div>
-      `,
+        </button>`,
     )
     .join("");
   host.querySelectorAll(".prompt-card").forEach((card) => {
@@ -112,10 +158,11 @@ async function loadPromptsTab() {
       const id = card.dataset.id;
       window.api.selectPrompt(id);
       updateSetting({ activePromptId: id });
-      // Mark active visually
-      host.querySelectorAll(".prompt-card").forEach((c) =>
-        c.classList.toggle("active", c.dataset.id === id),
-      );
+      host.querySelectorAll(".prompt-card").forEach((c) => {
+        const on = c.dataset.id === id;
+        c.classList.toggle("active", on);
+        c.setAttribute("aria-checked", String(on));
+      });
     });
   });
 }
@@ -124,10 +171,11 @@ function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-// ── Voice tab ───────────────────────────────────────────────────────────────
+// ── Voice ───────────────────────────────────────────────────────────────────
 async function loadVoiceTab() {
   if (!settings) settings = await window.api.getSettings();
   const v = settings.voice || {};
@@ -141,102 +189,289 @@ async function loadVoiceTab() {
   max.value = v.maxRecordingSec ?? 30;
   maxVal.textContent = `${max.value} s`;
   max.oninput = () => (maxVal.textContent = `${max.value} s`);
-  max.onchange = () =>
-    updateSetting({ voice: { maxRecordingSec: Number(max.value) } });
+  max.onchange = () => updateSetting({ voice: { maxRecordingSec: Number(max.value) } });
 
-  $$(`.seg[data-setting="voice.whisperModel"] .seg-btn`).forEach((b) => {
-    b.classList.toggle("active", b.dataset.value === (v.whisperModel || "whisper-1"));
-    b.onclick = () =>
-      updateSetting({ voice: { whisperModel: b.dataset.value } });
-  });
-
-  // Warn if OpenAI key missing
-  const info = await window.api.getSecretInfo();
-  const callout = document.getElementById("voice-key-callout");
-  if (callout) callout.hidden = !!info?.openai;
+  const [info, cfg] = await Promise.all([window.api.getSecretInfo(), window.api.getAiConfig()]);
+  const env = cfg?.overriddenByEnv?.transcriptionModel ? " (set by .env)" : "";
+  $("#voice-transcription").textContent = cfg?.transcriptionModel
+    ? cfg.transcriptionModel + env
+    : "Not chosen. Voice is off until you pick one.";
+  const problem = !info?.openrouter
+    ? "Voice needs an OpenRouter key."
+    : !cfg?.transcriptionModel
+      ? "Voice isn't set up: choose a transcription model."
+      : "";
+  $("#voice-callout-text").textContent = problem;
+  $("#voice-key-callout").hidden = !problem;
 }
 
-// ── API tab ─────────────────────────────────────────────────────────────────
-async function loadKeyStatuses() {
-  const info = await window.api.getSecretInfo();
-  setKeyChip("anthropic-status", info?.anthropic);
-  setKeyChip("openai-status", info?.openai);
-}
+// ── API & Models ────────────────────────────────────────────────────────────
+const saveBtn = $("#save-openrouter");
+const removeBtn = $("#remove-openrouter");
+let removeArmed = false;
 
-function setKeyChip(id, present) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  if (present) {
-    el.className = "chip ok";
-    el.textContent = "saved";
-  } else {
-    el.className = "chip warn";
-    el.textContent = "not set";
-  }
-}
-
-$$(".reveal").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const input = document.getElementById(btn.dataset.target);
-    if (!input) return;
-    input.type = input.type === "password" ? "text" : "password";
-  });
+const keyField = window.KeyField.mount($("#key-field"), {
+  api: window.api,
+  service: "openrouter",
+  inputId: "key-openrouter-set",
+  onState: (state) => {
+    // Save is enabled once the typed key is valid (or still being checked).
+    saveBtn.disabled = !(state === "valid" || state === "typing" || state === "checking");
+    renderKeyChip();
+  },
 });
 
-async function saveKey(service, inputId, chipId) {
-  const input = document.getElementById(inputId);
-  const value = input.value.trim();
-  if (!value) return;
-  const chip = document.getElementById(chipId);
-  chip.className = "chip accent";
-  chip.textContent = "checking…";
-  const r = await window.api.testSecret(service, value);
-  if (!r?.ok) {
-    chip.className = "chip danger";
-    chip.textContent = r?.error || "invalid";
+function renderKeyChip() {
+  const chip = $("#openrouter-status");
+  if (keyField.hasSaved) {
+    chip.className = "chip ok";
+    chip.textContent = "Saved";
+  } else {
+    chip.className = "chip warn";
+    chip.textContent = "Not set";
+  }
+  removeBtn.hidden = !keyField.hasSaved;
+}
+
+keyField.input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    saveKey();
+  }
+});
+
+async function saveKey() {
+  saveBtn.disabled = true;
+  const state = await keyField.validate();
+  if (state === "valid" && (await keyField.save())) {
+    toast("Key saved");
+    renderKeyChip();
+  }
+}
+saveBtn.addEventListener("click", saveKey);
+
+removeBtn.addEventListener("click", async () => {
+  // Two-step confirm, in place of a modal dialog.
+  if (!removeArmed) {
+    removeArmed = true;
+    removeBtn.textContent = "Click Again to Remove";
+    setTimeout(() => {
+      removeArmed = false;
+      removeBtn.textContent = "Remove Key…";
+    }, 3000);
     return;
   }
-  await window.api.saveSecret(service, value);
-  input.value = "";
-  chip.className = "chip ok";
-  chip.textContent = "saved";
+  removeArmed = false;
+  removeBtn.textContent = "Remove Key…";
+  await keyField.remove();
+  renderKeyChip();
+  toast("Key removed");
+});
+
+async function loadApiTab() {
+  await keyField.refreshSaved();
+  renderKeyChip();
+  loadModels();
+}
+
+// ── Models (answers, effort, max tokens, transcription) ─────────────────────
+// Everything comes from OpenRouter's list and the saved settings; values set
+// in .env are shown read-only.
+const M = window.SottoModels;
+let aiCfg = null;
+let modelsLoading = false;
+
+const chatPicker = M.mountPicker($("#chat-picker"), {
+  label: "Answer model",
+  onSelect: (m) => {
+    const prev = chatPicker.find(aiCfg?.model);
+    const patch = { model: m?.id ?? null };
+    if (!aiCfg.overriddenByEnv.effort) patch.effort = M.chooseEffort(m, aiCfg.effort);
+    if (!aiCfg.overriddenByEnv.maxTokens) {
+      patch.maxTokens = M.autoMaxTokens(prev, m, aiCfg.maxTokens);
+    }
+    saveAi(patch);
+  },
+});
+const audioPicker = M.mountPicker($("#audio-picker"), {
+  label: "Transcription model",
+  noneLabel: "None (voice off)",
+  onSelect: (m) => saveAi({ transcriptionModel: m?.id ?? null }),
+});
+
+async function saveAi(patch) {
+  Object.assign(aiCfg, patch);
+  settings = await window.api.saveSettings({ ai: patch });
+  renderEffort();
+  renderMaxTokens();
   toast("Saved");
 }
 
-$("#save-anthropic")?.addEventListener("click", () =>
-  saveKey("anthropic", "key-anthropic-set", "anthropic-status"),
-);
-$("#save-openai")?.addEventListener("click", () =>
-  saveKey("openai", "key-openai-set", "openai-status"),
-);
+function renderEffort() {
+  const row = $("#effort-row");
+  const seg = $("#effort-seg");
+  const lockedChip = $("#effort-locked");
+  if (aiCfg?.overriddenByEnv?.effort) {
+    row.hidden = false;
+    seg.hidden = true;
+    lockedChip.hidden = false;
+    lockedChip.textContent = `${M.effortLabel(aiCfg.effort)} · Set by .env`;
+    return;
+  }
+  seg.hidden = false;
+  lockedChip.hidden = true;
+  M.renderEffort(seg, row, chatPicker.find(aiCfg?.model), aiCfg?.effort, (v) =>
+    saveAi({ effort: v }),
+  );
+}
 
-// ── Extension tab ──────────────────────────────────────────────────────────
+const maxInput = $("#max-tokens");
+function renderMaxTokens() {
+  const locked = aiCfg?.overriddenByEnv?.maxTokens;
+  const chip = $("#max-tokens-locked");
+  maxInput.hidden = !!locked;
+  chip.hidden = !locked;
+  if (locked) {
+    chip.textContent = `${aiCfg.maxTokens.toLocaleString()} · Set by .env`;
+    return;
+  }
+  const model = chatPicker.find(aiCfg?.model);
+  maxInput.max = model?.maxOutput || "";
+  maxInput.placeholder = model?.maxOutput ? `${M.tokens(model.maxOutput)} (max)` : "Model max";
+  if (document.activeElement !== maxInput) {
+    maxInput.value = aiCfg?.maxTokens != null ? String(aiCfg.maxTokens) : "";
+  }
+}
+maxInput.addEventListener("change", () => {
+  const raw = maxInput.value.trim();
+  const n = Number(raw);
+  if (raw && !(Number.isInteger(n) && n > 0)) {
+    maxInput.classList.add("is-invalid");
+    return;
+  }
+  maxInput.classList.remove("is-invalid");
+  const model = chatPicker.find(aiCfg?.model);
+  const value = raw ? Math.min(n, model?.maxOutput || n) : null;
+  maxInput.value = value != null ? String(value) : "";
+  saveAi({ maxTokens: value });
+});
+maxInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") maxInput.blur();
+});
+
+async function loadModels() {
+  if (modelsLoading) return;
+  modelsLoading = true;
+  chatPicker.setLoading();
+  audioPicker.setLoading();
+  let list;
+  try {
+    [list, aiCfg] = await Promise.all([window.api.listModels(), window.api.getAiConfig()]);
+  } catch (e) {
+    list = { ok: false, error: e?.message };
+  } finally {
+    modelsLoading = false;
+  }
+  aiCfg = aiCfg || { overriddenByEnv: {} };
+  aiCfg.overriddenByEnv = aiCfg.overriddenByEnv || {};
+  const env = aiCfg.overriddenByEnv;
+
+  if (!list?.ok) {
+    const msg = list?.error || "Couldn't load models from OpenRouter.";
+    if (env.model) chatPicker.setLocked(aiCfg.model);
+    else chatPicker.setError(msg, loadModels);
+    if (env.transcriptionModel) audioPicker.setLocked(aiCfg.transcriptionModel);
+    else audioPicker.setError(msg, loadModels);
+  } else {
+    chatPicker.setItems(list.chat);
+    audioPicker.setItems(list.audio);
+    if (env.model) chatPicker.setLocked(aiCfg.model);
+    else chatPicker.select(aiCfg.model, { silent: true });
+    if (env.transcriptionModel) audioPicker.setLocked(aiCfg.transcriptionModel);
+    else audioPicker.select(aiCfg.transcriptionModel, { silent: true });
+  }
+  renderEffort();
+  renderMaxTokens();
+}
+
+// ── Privacy (permissions) ───────────────────────────────────────────────────
+const PERM_COPY = {
+  granted: { chip: "Allowed", cls: "ok" },
+  denied: { chip: "Not Allowed", cls: "danger" },
+  restricted: { chip: "Restricted", cls: "danger" },
+  "not-determined": { chip: "Not Set", cls: "warn" },
+};
+
+async function refreshPermissions() {
+  let p;
+  try {
+    p = await window.api.checkPermissions();
+  } catch {
+    return;
+  }
+  const map = { screen: p?.screen, mic: p?.microphone, accessibility: p?.accessibility };
+  for (const [name, status] of Object.entries(map)) {
+    const row = $(`.perm[data-perm="${name}"]`);
+    const copy = PERM_COPY[status] || { chip: "Unknown", cls: "" };
+    const chip = $(".perm-chip", row);
+    chip.className = `chip perm-chip ${copy.cls}`;
+    chip.textContent = copy.chip;
+    const action = $(".perm-action", row);
+    action.hidden = status === "granted";
+    const prompted = status === "denied" || status === "restricted";
+    action.textContent = prompted ? "Open Settings…" : "Allow…";
+    action.dataset.mode = prompted ? "settings" : "request";
+  }
+}
+
+$$(".perm-action").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const row = btn.closest(".perm");
+    if (btn.dataset.mode === "settings") {
+      window.api.openSystemSettings(row.dataset.pane);
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await window.api.requestPermission(row.dataset.kind);
+    } finally {
+      btn.disabled = false;
+      refreshPermissions();
+    }
+  });
+});
+
+// ── Extension ───────────────────────────────────────────────────────────────
 async function loadExtensionStatus() {
   const ok = await window.api.isExtensionConnected();
   const chip = $("#ext-set-chip");
   chip.className = "chip " + (ok ? "ok" : "warn");
-  chip.textContent = ok ? "✓ connected" : "not detected";
+  chip.textContent = ok ? "Connected" : "Not detected";
 }
 
 $("#ext-open-page")?.addEventListener("click", () => window.api.openExtensionPage());
 $("#ext-open-folder")?.addEventListener("click", () => window.api.openExtensionFolder());
+if (!isMac) $("#ext-open-folder").textContent = "Show Extension Folder";
 
-// ── About tab ──────────────────────────────────────────────────────────────
+// ── About ───────────────────────────────────────────────────────────────────
 async function loadAboutInfo() {
   const info = await window.api.getAppInfo();
-  const host = $("#about-info");
-  host.innerHTML = `
-    <div class="about-row"><span>Version</span><span>${info?.version ?? "—"}</span></div>
-    <div class="about-row"><span>Electron</span><span>${info?.electron ?? "—"}</span></div>
-    <div class="about-row"><span>Node</span><span>${info?.node ?? "—"}</span></div>
-    <div class="about-row"><span>Platform</span><span>${info?.platform ?? "—"}</span></div>
-    <div class="about-row"><span>userData</span><span title="${info?.userData ?? ""}">${(info?.userData ?? "").slice(-44)}</span></div>
-  `;
+  $("#about-version").textContent = info?.version ? `Version ${info.version}` : "";
+  const rows = [
+    ["Electron", info?.electron],
+    ["Node", info?.node],
+    ["Platform", info?.platform],
+    ["Data folder", info?.userData],
+  ];
+  $("#about-info").innerHTML = rows
+    .map(
+      ([k, v]) =>
+        `<div class="row-item"><span>${escapeHtml(k)}</span><span title="${escapeHtml(v ?? "")}">${escapeHtml(v ?? "—")}</span></div>`,
+    )
+    .join("");
 }
 
-$("#rerun-onboarding")?.addEventListener("click", () => {
-  window.api.reRunOnboarding();
-});
+$("#rerun-onboarding")?.addEventListener("click", () => window.api.reRunOnboarding());
 $("#open-repo")?.addEventListener("click", () =>
   window.api.openExternal("https://github.com/shanto462/Sotto"),
 );

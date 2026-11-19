@@ -1,7 +1,10 @@
 import { BrowserWindow } from "electron";
 
+const isMac = process.platform === "darwin";
 let win = null;
 
+// Preferences window in the style of macOS System Settings: translucent
+// sidebar (window vibrancy) with the traffic lights inset above it.
 export function openSettingsWindow({ preloadPath, indexPath, iconPath, initialTab }) {
   if (win && !win.isDestroyed()) {
     win.show();
@@ -11,13 +14,16 @@ export function openSettingsWindow({ preloadPath, indexPath, iconPath, initialTa
   }
   win = new BrowserWindow({
     width: 800,
-    height: 560,
-    minWidth: 640,
+    height: 580,
+    minWidth: 680,
     minHeight: 460,
-    title: "Sotto Preferences",
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    backgroundColor: "#15181f",
-    resizable: true,
+    fullscreenable: false,
+    title: "Sotto Settings",
+    titleBarStyle: isMac ? "hiddenInset" : "default",
+    trafficLightPosition: isMac ? { x: 18, y: 18 } : undefined,
+    vibrancy: isMac ? "sidebar" : undefined,
+    visualEffectState: isMac ? "followWindow" : undefined,
+    backgroundColor: isMac ? "#00000000" : "#1e1e1e",
     show: false,
     icon: iconPath,
     webPreferences: {

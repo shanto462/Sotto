@@ -55,12 +55,16 @@ export function hasSecret(service) {
 }
 
 // Hydrate process.env from the keychain so existing code paths
-// (Anthropic/OpenAI SDKs read from env) keep working unchanged.
+// (the OpenRouter client reads from env) keep working unchanged.
 // Env vars from a real .env take precedence; the keychain is a fallback.
 export function hydrateProcessEnv() {
+  // Sotto used to call Anthropic and OpenAI directly; drop those keys now
+  // that every request goes through OpenRouter.
+  for (const legacy of ["anthropic", "openai"]) {
+    if (loadAll()[legacy] != null) setSecret(legacy, null);
+  }
   const map = {
-    anthropic: "ANTHROPIC_API_KEY",
-    openai: "OPENAI_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
   };
   for (const [service, envKey] of Object.entries(map)) {
     if (process.env[envKey]) continue;

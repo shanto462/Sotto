@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld("api", {
   saveSecret: (service, value) =>
     ipcRenderer.invoke("secret:save", { service, value }),
   getSecretInfo: () => ipcRenderer.invoke("secret:info"),
+  listModels: () => ipcRenderer.invoke("models:list"),
+  getAiConfig: () => ipcRenderer.invoke("ai:get-config"),
+  saveSettings: (patch) => ipcRenderer.invoke("settings:save", patch),
   checkPermissions: () => ipcRenderer.invoke("permission:check"),
   requestPermission: (kind) =>
     ipcRenderer.invoke("permission:request", { kind }),

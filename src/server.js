@@ -1,5 +1,4 @@
 import { createServer } from "node:http";
-import { MODEL } from "./config.js";
 import { recordHeartbeat } from "./extension-monitor.js";
 
 // Only loopback hostnames are valid in the Host header. Anything else means the
@@ -67,8 +66,9 @@ function sendJson(res, status, body) {
  * @param {import("pino").Logger} opts.logger
  * @param {string} [opts.mode]
  * @param {(log)=>Promise<object>} opts.onAsk  must return { ok, durationMs?, answerChars? }
+ * @param {() => string|null} [opts.getModel]  current model id, for /health
  */
-export function createSolverServer({ logger, mode = "serve", onAsk }) {
+export function createSolverServer({ logger, mode = "serve", onAsk, getModel = () => null }) {
   let busy = false;
   let reqCounter = 0;
 
@@ -106,7 +106,7 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
     }
 
     if (req.method === "GET" && req.url === "/health") {
-      sendJson(res, 200, { ok: true, busy, model: MODEL, mode });
+      sendJson(res, 200, { ok: true, busy, model: getModel(), mode });
       return;
     }
 
@@ -154,7 +154,7 @@ export function createSolverServer({ logger, mode = "serve", onAsk }) {
         server.listen(port, host, () => {
           const actualPort = server.address().port;
           logger.info(
-            { port: actualPort, model: MODEL, mode },
+            { port: actualPort, model: getModel(), mode },
             `daemon ready — POST http://127.0.0.1:${actualPort}/ask`,
           );
           resolve(actualPort);

@@ -77,7 +77,7 @@
   --sp-5: 20px; --sp-6: 24px; --sp-7: 32px; --sp-8: 40px;
 
   /* Typography */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro",
                "Segoe UI Variable", "Segoe UI", "Inter", system-ui, sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --text-xs: 11px;  --text-sm: 12px;  --text-md: 13px;
@@ -93,6 +93,100 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
   --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* ── macOS system palette ────────────────────────────────────────────────────
+   Used by the onboarding and settings windows (html.mac-app). Mirrors the
+   AppKit semantic colors so the windows read as native in both appearances.
+   The overlay keeps the --color-* tokens above. */
+:root,
+:root[data-theme="dark"] {
+  --mac-accent:          #0a84ff;
+  --mac-accent-hover:    #339bff;
+  --mac-accent-pressed:  #0071e3;
+  --mac-accent-soft:     rgba(10, 132, 255, 0.16);
+  --mac-focus:           rgba(10, 132, 255, 0.55);
+  --mac-window:          #1e1e1e;
+  --mac-window-glass:    rgba(30, 30, 30, 0.74);
+  --mac-sidebar:         rgba(40, 40, 42, 0.72);
+  --mac-content:         #1e1e1e;
+  --mac-group:           rgba(255, 255, 255, 0.045);
+  --mac-group-border:    rgba(255, 255, 255, 0.07);
+  --mac-separator:       rgba(255, 255, 255, 0.09);
+  --mac-label:           rgba(255, 255, 255, 0.88);
+  --mac-label-2:         rgba(255, 255, 255, 0.56);
+  --mac-label-3:         rgba(255, 255, 255, 0.32);
+  --mac-control:         rgba(255, 255, 255, 0.11);
+  --mac-control-hover:   rgba(255, 255, 255, 0.16);
+  --mac-control-border:  rgba(255, 255, 255, 0.06);
+  --mac-control-shadow:  0 0.5px 1px rgba(0, 0, 0, 0.35);
+  --mac-field:           rgba(255, 255, 255, 0.055);
+  --mac-field-border:    rgba(255, 255, 255, 0.13);
+  --mac-hover:           rgba(255, 255, 255, 0.06);
+  --mac-green:           #30d158;
+  --mac-red:             #ff453a;
+  --mac-orange:          #ff9f0a;
+  --mac-shadow-window:   0 22px 60px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] {
+  --mac-accent:          #007aff;
+  --mac-accent-hover:    #1a86ff;
+  --mac-accent-pressed:  #0062cc;
+  --mac-accent-soft:     rgba(0, 122, 255, 0.12);
+  --mac-focus:           rgba(0, 122, 255, 0.45);
+  --mac-window:          #ececec;
+  --mac-window-glass:    rgba(246, 246, 246, 0.8);
+  --mac-sidebar:         rgba(232, 232, 236, 0.74);
+  --mac-content:         #f5f5f7;
+  --mac-group:           #ffffff;
+  --mac-group-border:    rgba(0, 0, 0, 0.06);
+  --mac-separator:       rgba(0, 0, 0, 0.09);
+  --mac-label:           rgba(0, 0, 0, 0.85);
+  --mac-label-2:         rgba(0, 0, 0, 0.52);
+  --mac-label-3:         rgba(0, 0, 0, 0.26);
+  --mac-control:         #ffffff;
+  --mac-control-hover:   #f6f6f6;
+  --mac-control-border:  rgba(0, 0, 0, 0.13);
+  --mac-control-shadow:  0 0.5px 1.5px rgba(0, 0, 0, 0.12);
+  --mac-field:           #ffffff;
+  --mac-field-border:    rgba(0, 0, 0, 0.16);
+  --mac-hover:           rgba(0, 0, 0, 0.045);
+  --mac-green:           #28c840;
+  --mac-red:             #ff3b30;
+  --mac-orange:          #ff9500;
+  --mac-shadow-window:   0 22px 60px rgba(0, 0, 0, 0.18);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    --mac-accent:          #007aff;
+    --mac-accent-hover:    #1a86ff;
+    --mac-accent-pressed:  #0062cc;
+    --mac-accent-soft:     rgba(0, 122, 255, 0.12);
+    --mac-focus:           rgba(0, 122, 255, 0.45);
+    --mac-window:          #ececec;
+    --mac-window-glass:    rgba(246, 246, 246, 0.8);
+    --mac-sidebar:         rgba(232, 232, 236, 0.74);
+    --mac-content:         #f5f5f7;
+    --mac-group:           #ffffff;
+    --mac-group-border:    rgba(0, 0, 0, 0.06);
+    --mac-separator:       rgba(0, 0, 0, 0.09);
+    --mac-label:           rgba(0, 0, 0, 0.85);
+    --mac-label-2:         rgba(0, 0, 0, 0.52);
+    --mac-label-3:         rgba(0, 0, 0, 0.26);
+    --mac-control:         #ffffff;
+    --mac-control-hover:   #f6f6f6;
+    --mac-control-border:  rgba(0, 0, 0, 0.13);
+    --mac-control-shadow:  0 0.5px 1.5px rgba(0, 0, 0, 0.12);
+    --mac-field:           #ffffff;
+    --mac-field-border:    rgba(0, 0, 0, 0.16);
+    --mac-hover:           rgba(0, 0, 0, 0.045);
+    --mac-green:           #28c840;
+    --mac-red:             #ff3b30;
+    --mac-orange:          #ff9500;
+    --mac-shadow-window:   0 22px 60px rgba(0, 0, 0, 0.18);
+  }
 }
 
 /* Reset & base */
@@ -116,87 +210,8 @@ body {
 }
 button, input, textarea, select { font: inherit; color: inherit; }
 
-/* Primitives */
-.btn {
-  appearance: none;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  font-weight: 500;
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--easing),
-              border-color var(--duration-fast) var(--easing),
-              transform var(--duration-fast) var(--easing);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-.btn:hover { background: var(--color-pill-bg); border-color: var(--color-border-strong); }
-.btn:active { transform: translateY(1px); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn.btn-primary {
-  background: var(--color-accent);
-  border-color: transparent;
-  color: #fff;
-  font-weight: 600;
-}
-:root[data-theme="dark"] .btn.btn-primary,
-:root[data-theme="auto"] .btn.btn-primary {
-  color: #08111f;
-}
-.btn.btn-primary:hover { background: var(--color-accent-hover); }
-.btn.btn-ghost { background: transparent; border-color: transparent; }
-.btn.btn-ghost:hover { background: var(--color-pill-bg); }
-.btn.btn-link { background: none; border: none; color: var(--color-accent); padding: 4px 6px; }
-.btn.btn-link:hover { text-decoration: underline; }
-
-.input {
-  appearance: none;
-  width: 100%;
-  background: var(--color-input-bg);
-  border: 1px solid var(--color-input-border);
-  border-radius: var(--radius-md);
-  padding: 9px 12px;
-  font-size: var(--text-md);
-  font-family: var(--font-mono);
-  color: var(--color-text);
-  transition: border-color var(--duration-fast) var(--easing);
-}
-.input:focus { outline: none; border-color: var(--color-input-focus); }
-.input::placeholder { color: var(--color-muted); }
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-2);
-  color: var(--color-text-dim);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-.chip.ok      { background: rgba(74, 222, 128, 0.16); color: var(--color-success); }
-.chip.warn    { background: rgba(251, 191, 36, 0.16); color: var(--color-warning); }
-.chip.danger  { background: rgba(239, 68, 68, 0.16);  color: var(--color-danger); }
-.chip.accent  { background: rgba(122, 162, 255, 0.16); color: var(--color-accent); }
-
-.divider {
-  height: 1px;
-  background: var(--color-border);
-  border: none;
-  margin: 0;
-}
-
-.muted { color: var(--color-muted); }
-.dim   { color: var(--color-text-dim); }
-
+/* ── Primitives ──────────────────────────────────────────────────────────────
+   Generic, used by the overlay too (kbd, spinner). */
 kbd {
   display: inline-block;
   padding: 1px 6px;
@@ -223,5 +238,370 @@ kbd {
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.muted { color: var(--color-muted); }
+.dim   { color: var(--color-text-dim); }
+.divider { height: 1px; background: var(--color-border); border: none; margin: 0; }
+
+/* ── macOS app windows (onboarding, settings) ────────────────────────────────
+   Enabled with <html class="mac-app">. Controls follow AppKit metrics:
+   13 px system text, 28 px push buttons and fields, a 3 px accent focus ring. */
+.mac-app body {
+  font: 13px/1.45 var(--font-sans);
+  color: var(--mac-label);
+  background: var(--mac-content);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+/* With vibrancy (macOS), the window shows through translucent surfaces. */
+.mac-app.platform-mac body { background: transparent; }
+
+.mac-app :focus { outline: none; }
+.mac-app :focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--mac-focus);
+}
+.mac-app input, .mac-app textarea { user-select: text; -webkit-user-select: text; }
+.mac-app a { color: var(--mac-accent); text-decoration: none; }
+
+.mac-app kbd {
+  font: 500 11px/1.5 var(--font-sans);
+  padding: 1px 6px;
+  background: var(--mac-control);
+  border: 0.5px solid var(--mac-control-border);
+  box-shadow: var(--mac-control-shadow);
+  border-radius: 5px;
+  color: var(--mac-label);
+}
+.mac-app .spinner {
+  border-color: var(--mac-accent-soft);
+  border-top-color: var(--mac-accent);
+}
+
+/* Push buttons */
+.btn {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 7px;
+  border: 0.5px solid var(--mac-control-border);
+  background: var(--mac-control);
+  box-shadow: var(--mac-control-shadow);
+  color: var(--mac-label);
+  font: 400 13px/1 var(--font-sans);
+  white-space: nowrap;
+  cursor: default;
+  transition: background var(--duration-fast) var(--easing),
+              box-shadow var(--duration-fast) var(--easing);
+}
+.btn:hover:not(:disabled) { background: var(--mac-control-hover); }
+.btn:active:not(:disabled) { filter: brightness(0.92); }
+.btn:disabled { opacity: 0.4; }
+.btn.btn-primary {
+  background: linear-gradient(180deg, var(--mac-accent-hover), var(--mac-accent));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 500;
+}
+.btn.btn-primary:hover:not(:disabled) { background: var(--mac-accent-hover); }
+.btn.btn-primary:active:not(:disabled) { background: var(--mac-accent-pressed); filter: none; }
+.btn.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.btn.btn-ghost:hover:not(:disabled) { background: var(--mac-hover); }
+.btn.btn-link {
+  height: auto;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--mac-accent);
+}
+.btn.btn-link:hover:not(:disabled) { background: none; text-decoration: underline; }
+.btn.btn-danger { color: var(--mac-red); }
+.btn.btn-lg { height: 32px; padding: 0 20px; font-size: 13px; min-width: 96px; }
+.btn.btn-sm { height: 22px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
+.btn-icon { width: 28px; padding: 0; }
+
+/* Text fields */
+.input {
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 1px solid var(--mac-field-border);
+  background: var(--mac-field);
+  color: var(--mac-label);
+  font: 13px var(--font-sans);
+  transition: border-color var(--duration-fast) var(--easing),
+              box-shadow var(--duration-fast) var(--easing);
+}
+.input.mono { font: 12.5px var(--font-mono); letter-spacing: 0.01em; }
+.input::placeholder { color: var(--mac-label-3); }
+.input:focus,
+.input:focus-visible {
+  border-color: var(--mac-accent);
+  box-shadow: 0 0 0 3px var(--mac-focus);
+}
+.input.is-invalid { border-color: var(--mac-red); }
+.input.is-invalid:focus { box-shadow: 0 0 0 3px rgba(255, 69, 58, 0.35); }
+
+/* Status chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--mac-control);
+  color: var(--mac-label-2);
+  font: 500 11px/1 var(--font-sans);
+  white-space: nowrap;
+}
+.chip.ok     { background: rgba(48, 209, 88, 0.15);  color: var(--mac-green); }
+.chip.warn   { background: rgba(255, 159, 10, 0.15); color: var(--mac-orange); }
+.chip.danger { background: rgba(255, 69, 58, 0.15);  color: var(--mac-red); }
+.chip.accent { background: var(--mac-accent-soft);   color: var(--mac-accent); }
+
+/* Toggle switch (NSSwitch) */
+.switch { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: default; }
+.switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 11px;
+  background: var(--mac-control);
+  border: 0.5px solid var(--mac-control-border);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  transition: background var(--duration-fast) var(--easing);
+  pointer-events: none;
+}
+.switch span::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  transition: transform var(--duration-med) var(--easing);
+}
+.switch input:checked + span { background: var(--mac-accent); border-color: transparent; }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { box-shadow: 0 0 0 3px var(--mac-focus); }
+
+/* Segmented control (NSSegmentedControl) */
+.seg {
+  display: inline-flex;
+  padding: 1px;
+  gap: 1px;
+  border-radius: 7px;
+  background: var(--mac-hover);
+  border: 0.5px solid var(--mac-control-border);
+}
+.seg-btn {
+  appearance: none;
+  height: 22px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mac-label);
+  font: 400 12px/1 var(--font-sans);
+  cursor: default;
+  transition: background var(--duration-fast) var(--easing);
+}
+.seg-btn:hover:not(.active) { background: var(--mac-hover); }
+.seg-btn.active {
+  background: var(--mac-control);
+  box-shadow: var(--mac-control-shadow), 0 0 0 0.5px var(--mac-control-border);
+  font-weight: 500;
+}
+
+/* Checkbox (NSButton checkbox) */
+.mac-check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: default; }
+.mac-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 4px;
+  border: 0.5px solid var(--mac-field-border);
+  background: var(--mac-field);
+  box-shadow: var(--mac-control-shadow);
+  display: grid;
+  place-items: center;
+}
+.mac-check input[type="checkbox"]:checked { background: var(--mac-accent); border-color: transparent; }
+.mac-check input[type="checkbox"]:checked::after {
+  content: "";
+  width: 7px;
+  height: 4px;
+  margin-top: -2px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+}
+
+/* Inset grouped list (System Settings style) */
+.group-box {
+  background: var(--mac-group);
+  border: 0.5px solid var(--mac-group-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.group-box > .row-item + .row-item { border-top: 0.5px solid var(--mac-separator); }
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.row-item .row-main { flex: 1; min-width: 0; }
+.row-item .row-title { font-weight: 400; color: var(--mac-label); }
+.row-item .row-sub { font-size: 11.5px; color: var(--mac-label-2); margin-top: 1px; }
+
+/* API-key field (shared by onboarding and settings, see shared/key-field.js) */
+.key-field { display: flex; flex-direction: column; gap: 8px; }
+.key-input-wrap { position: relative; display: flex; align-items: center; }
+.key-input-wrap .input { padding-right: 34px; }
+.key-input-wrap .reveal {
+  position: absolute;
+  right: 3px;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border-radius: 5px;
+  color: var(--mac-label-2);
+}
+.key-input-wrap .reveal svg { width: 15px; height: 15px; }
+.key-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 20px;
+  font-size: 12px;
+  color: var(--mac-label-2);
+}
+.key-status .glyph {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+  font: 700 10px/1 var(--font-sans);
+}
+.key-status[data-state="valid"] .glyph,
+.key-status[data-state="saved"] .glyph { background: var(--mac-green); }
+.key-status[data-state="invalid"] .glyph { background: var(--mac-red); }
+.key-status[data-state="network"] .glyph { background: var(--mac-orange); }
+.key-status[data-state="empty"] .glyph { background: var(--mac-label-3); }
+.key-status[data-state="valid"] .msg,
+.key-status[data-state="saved"] .msg { color: var(--mac-label); }
+.key-status[data-state="invalid"] .msg { color: var(--mac-red); }
+.key-status .retry { margin-left: 2px; }
+.key-status .spinner { width: 14px; height: 14px; }
+
+/* Model picker (shared/models.js) */
+.picker { display: flex; flex-direction: column; gap: 6px; }
+.picker-search { position: relative; display: flex; align-items: center; }
+.picker-search[hidden] { display: none; }
+.picker-search svg {
+  position: absolute;
+  left: 8px;
+  width: 13px;
+  height: 13px;
+  color: var(--mac-label-2);
+  pointer-events: none;
+}
+.picker-search .input { padding-left: 27px; height: 26px; border-radius: 7px; }
+.picker-search .input::-webkit-search-cancel-button { filter: grayscale(1) opacity(0.6); }
+.picker-list {
+  height: 168px;
+  overflow-y: auto;
+  background: var(--mac-group);
+  border: 0.5px solid var(--mac-group-border);
+  border-radius: 8px;
+  padding: 3px;
+}
+.picker-list[hidden] { display: none; }
+.picker-list:focus-visible { box-shadow: 0 0 0 3px var(--mac-focus); }
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: default;
+}
+.picker-row:hover:not(.selected) { background: var(--mac-hover); }
+.picker-row.selected { background: var(--mac-accent); color: #fff; }
+.picker-row.selected .picker-id,
+.picker-row.selected .picker-meta { color: rgba(255, 255, 255, 0.82); }
+.picker-check { width: 12px; flex-shrink: 0; font-size: 11px; font-weight: 700; }
+.picker-main { flex: 1; min-width: 0; }
+.picker-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-row.none .picker-name { color: var(--mac-label-2); font-style: italic; }
+.picker-row.none.selected .picker-name { color: #fff; }
+.picker-id {
+  font: 11px var(--font-mono);
+  color: var(--mac-label-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-meta { font-size: 11px; color: var(--mac-label-2); white-space: nowrap; flex-shrink: 0; }
+.picker-empty { padding: 14px; text-align: center; color: var(--mac-label-2); font-size: 12px; }
+.picker-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  padding: 10px 12px;
+  background: var(--mac-group);
+  border: 0.5px solid var(--mac-group-border);
+  border-radius: 8px;
+  color: var(--mac-label-2);
+  font-size: 12px;
+}
+.picker-state[hidden], .picker-locked[hidden] { display: none; }
+.picker-err { flex: 1; color: var(--mac-red); }
+.picker-locked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--mac-group);
+  border: 0.5px solid var(--mac-group-border);
+  border-radius: 8px;
+}
+.picker-locked code { font: 12px var(--font-mono); color: var(--mac-label); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mac-app *, .mac-app *::before, .mac-app *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  .mac-app .spinner { animation-duration: 1.6s !important; }
+}

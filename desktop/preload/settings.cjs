@@ -5,10 +5,17 @@ contextBridge.exposeInMainWorld("api", {
   saveSettings: (patch) => ipcRenderer.invoke("settings:save", patch),
   resetSettings: () => ipcRenderer.invoke("settings:reset"),
   getSecretInfo: () => ipcRenderer.invoke("secret:info"),
+  listModels: () => ipcRenderer.invoke("models:list"),
+  getAiConfig: () => ipcRenderer.invoke("ai:get-config"),
   testSecret: (service, value) =>
     ipcRenderer.invoke("secret:test", { service, value }),
   saveSecret: (service, value) =>
     ipcRenderer.invoke("secret:save", { service, value }),
+  checkPermissions: () => ipcRenderer.invoke("permission:check"),
+  requestPermission: (kind) =>
+    ipcRenderer.invoke("permission:request", { kind }),
+  openSystemSettings: (pane) =>
+    ipcRenderer.send("permission:open-system-settings", pane),
   isExtensionConnected: () => ipcRenderer.invoke("extension:is-connected"),
   openExtensionFolder: () => ipcRenderer.send("extension:open-folder"),
   openExtensionPage: () => ipcRenderer.send("extension:open-page"),

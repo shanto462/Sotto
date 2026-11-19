@@ -16,9 +16,15 @@ const DEFAULTS = {
   persistHistory: false,
   voice: {
     enabled: true,
-    silenceThresholdRms: 0.02,
     maxRecordingSec: 30,
-    whisperModel: "whisper-1",
+  },
+  // Chosen in setup or Preferences; .env overrides (see src/config.js).
+  // null = not chosen yet (effort / maxTokens: use the model's default).
+  ai: {
+    model: null,
+    effort: null,
+    maxTokens: null,
+    transcriptionModel: null,
   },
   shortcuts: {
     ask: "Control+M",

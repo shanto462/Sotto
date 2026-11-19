@@ -1,9 +1,8 @@
 export { captureChromeWindowByTitle } from "./capture.js";
 export { askClaude, askClaudeText } from "./claude.js";
-export { DEFAULT_PORT, MAX_TOKENS, MODEL } from "./config.js";
+export { DEFAULT_PORT, resolveAiConfig } from "./config.js";
 export {
   isExtensionAlive,
-  lastSeenAgoMs,
   recordHeartbeat,
 } from "./extension-monitor.js";
 export {
@@ -25,7 +24,6 @@ export {
   VOICE_SYSTEM_PROMPT,
 } from "./prompt.js";
 export {
-  getSecret,
   hasSecret,
   hydrateProcessEnv,
   setSecret,
@@ -35,4 +33,5 @@ export {
   resetSettings,
   saveSettings,
 } from "./settings.js";
+export { listModels } from "./models.js";
 export { transcribeAudio } from "./voice.js";

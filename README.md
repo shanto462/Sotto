@@ -27,7 +27,7 @@ recap or definition: the on-screen version of speaker notes on a podium.
 | Onboarding wizard | ✓ | ✓ |
 | Settings window | ✓ | ✓ |
 | Chrome capture (Ctrl+M) | ✓ | ✓ |
-| Voice trigger (Ctrl+Shift+V → Whisper → Claude) | ✓ | ✓ |
+| Voice trigger (Ctrl+Shift+V → transcription → Claude) | ✓ | ✓ |
 | Overlay hidden from screen capture | ✓ (`NSWindowSharingNone`) | ✓ (`WDA_EXCLUDEFROMCAPTURE`) |
 | Overlay positioned over Chrome | ✓ | ✗ (top-right of primary display) |
 | Global hotkeys (Ctrl+B, Ctrl+H, Ctrl+L, Ctrl+1…5, …) | ✓ | ✓ |
@@ -44,8 +44,8 @@ Linux is not supported.
 - macOS 13+ **or** Windows 10 (build 19041 / 2004+)
 - Node.js 22 or newer (see [`.nvmrc`](.nvmrc))
 - Google Chrome
-- An Anthropic API key
-- (Optional, for the voice trigger) An OpenAI API key
+- An OpenRouter API key. Sotto calls Claude, and transcribes voice, through
+  OpenRouter, so this is the only key you need.
 
 ### Install
 
@@ -60,7 +60,8 @@ npm install
 **Recommended: build a real app bundle once, then launch that.**
 
 ```bash
-npm run build:mac        # produces dist/mac-arm64/Sotto.app
+npm run cert:mac         # once: create the "Sotto Local Signing" identity
+npm run build:mac        # produces dist/mac-arm64/Sotto.app, signed with it
 npm run run:mac          # opens it
 # or both in one step:
 npm run dev:mac
@@ -68,6 +69,12 @@ npm run dev:mac
 
 On Windows use `npm run build:win`, `npm run run:win`, or `npm run dev:win`
 (produces `dist\win-unpacked\Sotto.exe`).
+
+On macOS, `build:mac` signs the app with a self-signed local identity. Without
+it, each build gets a new ad-hoc signature and macOS forgets the Screen
+Recording, Microphone, and Accessibility grants after every rebuild. With it,
+you grant them once. If the identity is missing, the build still succeeds and
+prints how to create it.
 
 Running the packaged app matters on macOS because the OS attributes permission
 requests to the process that owns them. If you `npm start` from a terminal
@@ -82,9 +89,14 @@ For quick iteration:
 npm start                # dev mode; permissions are scoped to the parent terminal
 ```
 
-The onboarding wizard opens on first launch: license acceptance → API keys →
-permissions → Chrome extension. Everything is configured from the GUI. No
-`.env` file is needed.
+The setup assistant opens on first launch: welcome → license → OpenRouter key
+(checked live) → models → permissions → Chrome extension → done. On the Models
+step you pick the answer model (Claude 5.5 family) and its effort level, and
+the voice transcription model (Gemini Flash), from OpenRouter's live model
+list. Everything is configured from the GUI and can be changed later in
+**Preferences → API & Models**. No `.env` file is needed. If one exists, its
+`OPENROUTER_MODEL`, `SOTTO_EFFORT`, `MAX_TOKENS`, and `TRANSCRIPTION_MODEL`
+values override the saved choices when you run `npm start`.
 
 ### Other build targets
 
@@ -105,7 +117,7 @@ npm run build:exe        # Windows: portable .exe (run on a Windows host)
 
 ### Load the Chrome extension
 
-The onboarding wizard (step 4) walks you through this and shows the exact
+The setup assistant's Chrome Extension step walks you through this and shows the exact
 folder to load. To run it again later, use **tray → Preferences → Extension**
 or **About → Re-run setup**.
 
@@ -131,7 +143,7 @@ that ID. If a toast says "unknown extension ID", reload the extension at
 | Shortcut | Action |
 |---|---|
 | `Ctrl+M` (in Chrome) | Capture the active Chrome window and ask Claude with the current prompt mode |
-| `Ctrl+Shift+V` (anywhere) | Start / stop voice recording → Whisper → Claude |
+| `Ctrl+Shift+V` (anywhere) | Start / stop voice recording → transcription → Claude |
 | `Ctrl+B` (anywhere) | Show / hide the overlay |
 | `Ctrl+H` | Toggle the history rail in the overlay |
 | `Ctrl+L` | Clear the current answer |
@@ -154,14 +166,14 @@ Chrome extension                Electron desktop app
 ─────────────────              ───────────────────────────────────
 Ctrl+M  ──HTTP POST /ask───▶   onAsk → desktopCapturer →
                                 ↓
-                                Anthropic Claude (vision + active prompt)
+                                Claude via OpenRouter (vision + active prompt)
                                 ↓
                                 marked → IPC → overlay window
 
 Ctrl+Shift+V                    Renderer: MediaRecorder → ArrayBuffer
   ─(global hotkey)──▶ onVoice → ↓
-                                IPC → main → OpenAI Whisper → transcript →
-                                Anthropic Claude (text) → IPC → overlay
+                                IPC → main → OpenRouter (Gemini) → transcript →
+                                Claude via OpenRouter (text) → IPC → overlay
 
 Overlay window (Electron BrowserWindow)
   • Frameless, transparent, always-on-top, click-through
@@ -183,9 +195,9 @@ provider that handles it:
 
 | You do | What is sent | Sent to |
 |---|---|---|
-| Press `Ctrl+M` (or tray → Ask Claude) | A screenshot of the active Chrome window + the active prompt | Anthropic API |
-| Use the voice trigger | The recorded audio clip | OpenAI transcription API |
-| | The transcript of that clip | Anthropic API |
+| Press `Ctrl+M` (or tray → Ask Claude) | A screenshot of the active Chrome window + the active prompt | OpenRouter API (routed to Anthropic) |
+| Use the voice trigger | The recorded audio clip | OpenRouter API (routed to the transcription model, Gemini by default) |
+| | The transcript of that clip | OpenRouter API (routed to Anthropic) |
 | Save or test an API key | The key itself, to check that it works | That provider's API |
 
 The providers' own data policies apply to what you send them. Locally:
@@ -261,11 +273,11 @@ It does **not** block, on any platform:
 - **General**: theme (dark / light / auto), opacity, font size, launch at
   login, remember answers across sessions, position over Chrome (macOS).
 - **Triggers**: the full list of registered global shortcuts.
-- **Voice**: enable/disable, max recording length, Whisper model.
+- **Voice**: enable/disable, max recording length, transcription model.
 - **Prompts**: pick the active prompt mode for `Ctrl+M`. Five built-in modes;
   the full system prompt text is shown for transparency.
-- **API & Models**: Anthropic key, OpenAI key, with live validation against
-  the provider APIs. Stored in the OS keychain.
+- **API & Models**: OpenRouter key, with live validation against the
+  OpenRouter API. Stored in the OS keychain.
 - **Extension**: live connection status.
 - **About**: version, runtime info, link to the LICENSE.
 
@@ -303,13 +315,15 @@ Sotto/
 ├── package.json                Scripts + electron-builder config
 ├── .github/                    CI, Dependabot, issue and PR templates
 ├── assets/                     Tray + app icons, macOS entitlements
-├── plans/                      Design docs
 ├── scripts/reset.sh            Wipe all local Sotto state (macOS)
+├── scripts/make-cert.sh        Create the local code-signing identity (macOS, once)
+├── scripts/sign-mac.mjs        Sign local builds with that identity
 ├── src/                        Shared library (Node + Electron main)
 │   ├── capture.js              Cross-platform capture via desktopCapturer
 │   ├── os.js                   Window query: AppleScript / Win32 PowerShell
-│   ├── claude.js               Anthropic API (image + text)
-│   ├── voice.js                OpenAI Whisper transcription
+│   ├── claude.js               Claude via OpenRouter (image + text)
+│   ├── voice.js                Voice transcription via OpenRouter
+│   ├── openrouter.js           OpenRouter Chat Completions client (fetch)
 │   ├── prompt.js               System prompts + PROMPT_PRESETS
 │   ├── markdown.js             Markdown → HTML (raw HTML escaped)
 │   ├── config.js               Env-driven constants
@@ -331,7 +345,7 @@ Sotto/
 │   └── ui/
 │       ├── shared/tokens.css   Design tokens (theme-aware)
 │       ├── overlay/            Live answer overlay
-│       ├── onboarding/         4-step setup wizard
+│       ├── onboarding/         Step-by-step setup assistant
 │       └── settings/           Tabbed preferences window
 ├── extension/                  Chrome MV3 extension (Ctrl+M trigger + heartbeat)
 └── test/                       Unit tests (node --test)
@@ -341,8 +355,6 @@ Sotto/
 
 | Package | Purpose |
 |---|---|
-| `@anthropic-ai/sdk` | Claude vision + text API |
-| `openai` | Whisper transcription |
 | `marked` + `marked-highlight` + `highlight.js` | Markdown rendering |
 | `pino` + `pino-pretty` | Structured logging |
 | `electron` (dev) | Desktop runtime |

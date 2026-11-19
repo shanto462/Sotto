@@ -3,7 +3,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("api", {
   onStatus: (cb) => ipcRenderer.on("status", (_e, data) => cb(data)),
   onAnswer: (cb) => ipcRenderer.on("answer", (_e, data) => cb(data)),
-  onVoiceToggle: (cb) => ipcRenderer.on("voice:toggle", () => cb()),
+  onVoiceToggle: (cb) =>
+    ipcRenderer.on("voice:toggle", (_e, opts) => cb(opts)),
   onHistoryUpdate: (cb) =>
     ipcRenderer.on("history:update", (_e, list) => cb(list)),
   onHistoryToggle: (cb) => ipcRenderer.on("history:toggle", () => cb()),

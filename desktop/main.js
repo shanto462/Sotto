@@ -4,6 +4,7 @@ import {
   desktopCapturer,
   dialog,
   ipcMain,
+  nativeTheme,
   Notification,
   session,
   shell,
@@ -26,12 +27,14 @@ import {
   hydrateProcessEnv,
   initHistory,
   isExtensionAlive,
+  listModels,
   listHistory,
   loadSettings,
   logger,
   PROMPT_PRESETS,
   queryActiveChromeWindow,
   renderMarkdown,
+  resolveAiConfig,
   resetSettings,
   saveSettings,
   setHistoryPersist,
@@ -215,15 +218,29 @@ function updateDockVisibility() {
   }
 }
 
+// Model settings: .env overrides, then what the user chose in setup or
+// Preferences (src/config.js).
+function aiConfig(settings = loadSettings()) {
+  return resolveAiConfig(settings);
+}
+
 // ── Capture + ask orchestration ──────────────────────────────────────────────
 async function handleAsk(log) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     showOverlay(ensureOverlay(), isMac);
     overlayWin?.webContents.send("status", {
       state: "error",
-      error: "ANTHROPIC_API_KEY is not set. Open Preferences → API & Models.",
+      error: "OPENROUTER_API_KEY is not set. Open Preferences → API & Models.",
     });
-    throw new Error("ANTHROPIC_API_KEY missing");
+    throw new Error("OPENROUTER_API_KEY missing");
+  }
+  if (!aiConfig().model) {
+    showOverlay(ensureOverlay(), isMac);
+    overlayWin?.webContents.send("status", {
+      state: "error",
+      error: "No model chosen. Open Preferences → API & Models.",
+    });
+    throw new Error("model not configured");
   }
 
   const start = performance.now();
@@ -239,7 +256,7 @@ async function handleAsk(log) {
 
     const { png, name } = await captureChromeWindowByTitle(title, log);
     const prompt = getPromptById(loadSettings().activePromptId);
-    const { text, meta } = await askClaude(png, log, prompt.body);
+    const { text, meta } = await askClaude(png, aiConfig(), log, prompt.body);
     meta.promptName = prompt.name;
     const html = renderMarkdown(text);
     overlayWin?.webContents.send("answer", {
@@ -313,7 +330,15 @@ function selectPrompt(id) {
   logger.info({ id: preset.id, name: preset.name }, "active prompt set");
 }
 
+// Native chrome (vibrancy, title bar, scrollbars) follows Sotto's theme
+// setting instead of the system appearance, so it matches the page.
+function applyNativeTheme(theme) {
+  nativeTheme.themeSource =
+    theme === "light" || theme === "dark" ? theme : "system";
+}
+
 function broadcastTheme(theme) {
+  applyNativeTheme(theme);
   for (const w of [overlayWin, onboardingWin, getSettingsWindow()]) {
     if (w && !w.isDestroyed()) w.webContents.send("theme:changed", theme);
   }
@@ -333,17 +358,28 @@ function handleVoiceToggle() {
     logger.info("voice trigger ignored (disabled in settings)");
     return;
   }
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     showOverlay(ensureOverlay(), isMac);
     overlayWin?.webContents.send("status", {
       state: "error",
       error:
-        "OPENAI_API_KEY is required for voice. Open Preferences → API & Models.",
+        "OPENROUTER_API_KEY is required for voice. Open Preferences → API & Models.",
+    });
+    return;
+  }
+  const ai = aiConfig(settings);
+  if (!ai.model || !ai.transcriptionModel) {
+    showOverlay(ensureOverlay(), isMac);
+    overlayWin?.webContents.send("status", {
+      state: "error",
+      error: `Voice needs a ${ai.model ? "transcription" : "chat"} model. Open Preferences → API & Models.`,
     });
     return;
   }
   showOverlay(ensureOverlay(), isMac);
-  overlayWin?.webContents.send("voice:toggle");
+  overlayWin?.webContents.send("voice:toggle", {
+    maxSec: settings.voice?.maxRecordingSec ?? 30,
+  });
 }
 
 async function handleVoiceAudio(arrayBuffer) {
@@ -356,7 +392,7 @@ async function handleVoiceAudio(arrayBuffer) {
     const { text: transcript } = await transcribeAudio(
       Buffer.from(arrayBuffer),
       {
-        model: settings.voice?.whisperModel || "whisper-1",
+        model: aiConfig(settings).transcriptionModel,
         log,
       },
     );
@@ -370,7 +406,7 @@ async function handleVoiceAudio(arrayBuffer) {
       transcript,
     });
 
-    const { text, meta } = await askClaudeText(transcript, log);
+    const { text, meta } = await askClaudeText(transcript, aiConfig(), log);
     const html = renderMarkdown(text);
     overlayWin?.webContents.send("answer", {
       html,
@@ -476,34 +512,51 @@ async function requestPermission(kind) {
 }
 
 // ── Secret validation (live ping against provider APIs) ──────────────────────
-async function testAnthropicKey(key) {
+// Result: { ok: true, limitRemaining, isFreeTier } or
+// { ok: false, reason: "invalid" | "http" | "network", error }.
+// Never echoes the key itself.
+async function testOpenRouterKey(key) {
+  let r;
   try {
-    const r = await fetch("https://api.anthropic.com/v1/models?limit=1", {
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-    });
-    if (r.status === 401 || r.status === 403)
-      return { ok: false, error: "Invalid key" };
-    if (r.status >= 400) return { ok: false, error: `HTTP ${r.status}` };
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: `Network: ${e?.message ?? e}` };
-  }
-}
-
-async function testOpenAIKey(key) {
-  try {
-    const r = await fetch("https://api.openai.com/v1/models", {
+    r = await fetch("https://openrouter.ai/api/v1/key", {
       headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(10_000),
     });
-    if (r.status === 401) return { ok: false, error: "Invalid key" };
-    if (r.status >= 400) return { ok: false, error: `HTTP ${r.status}` };
-    return { ok: true };
   } catch (e) {
-    return { ok: false, error: `Network: ${e?.message ?? e}` };
+    const timedOut = e?.name === "TimeoutError";
+    return {
+      ok: false,
+      reason: "network",
+      error: timedOut ? "OpenRouter didn't respond." : "Couldn't reach OpenRouter.",
+    };
   }
+  let body = null;
+  try {
+    body = await r.json();
+  } catch {
+    /* non-JSON body */
+  }
+  if (r.status === 401 || r.status === 403) {
+    return {
+      ok: false,
+      reason: "invalid",
+      error: body?.error?.message || "OpenRouter rejected this key.",
+    };
+  }
+  if (!r.ok) {
+    return {
+      ok: false,
+      reason: "http",
+      error: body?.error?.message || `OpenRouter returned HTTP ${r.status}.`,
+    };
+  }
+  const data = body?.data ?? {};
+  return {
+    ok: true,
+    limitRemaining:
+      typeof data.limit_remaining === "number" ? data.limit_remaining : null,
+    isFreeTier: !!data.is_free_tier,
+  };
 }
 
 // ── IPC ──────────────────────────────────────────────────────────────────────
@@ -533,23 +586,24 @@ function registerIPC() {
 
   // Secrets
   ipcMain.handle("secret:info", () => ({
-    anthropic: hasSecret("anthropic") || !!process.env.ANTHROPIC_API_KEY,
-    openai: hasSecret("openai") || !!process.env.OPENAI_API_KEY,
+    openrouter: hasSecret("openrouter") || !!process.env.OPENROUTER_API_KEY,
   }));
   ipcMain.handle("secret:test", async (_e, { service, value }) => {
-    if (service === "anthropic") return testAnthropicKey(value);
-    if (service === "openai") return testOpenAIKey(value);
+    if (service === "openrouter") return testOpenRouterKey(value);
     return { ok: false, error: "Unknown service" };
   });
   ipcMain.handle("secret:save", (_e, { service, value }) => {
     setSecret(service, value);
     const envKey = {
-      anthropic: "ANTHROPIC_API_KEY",
-      openai: "OPENAI_API_KEY",
+      openrouter: "OPENROUTER_API_KEY",
     }[service];
     if (envKey) process.env[envKey] = value;
     return { ok: true };
   });
+
+  // Models (live list from OpenRouter) and the resolved AI config
+  ipcMain.handle("models:list", () => listModels());
+  ipcMain.handle("ai:get-config", () => aiConfig());
 
   // Permissions
   ipcMain.handle("permission:check", () => getPermissionStatus());
@@ -601,6 +655,8 @@ function registerIPC() {
     platform: `${process.platform} (${process.arch})`,
     userData: app.getPath("userData"),
     isPackaged: app.isPackaged,
+    model: aiConfig().model,
+    effort: aiConfig().effort,
   }));
 
   // Overlay click-through toggle
@@ -696,6 +752,7 @@ async function startRuntime() {
     logger,
     mode: "desktop",
     onAsk: handleAsk,
+    getModel: () => aiConfig().model,
   });
 
   try {
@@ -733,6 +790,7 @@ app.whenReady().then(async () => {
 
   hydrateProcessEnv();
   const settings = loadSettings();
+  applyNativeTheme(settings.theme);
 
   try {
     syncExtensionDir();

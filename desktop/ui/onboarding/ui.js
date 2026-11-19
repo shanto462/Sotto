@@ -1,254 +1,515 @@
-const TOTAL_STEPS = 5;
-let current = 1;
-let licenseAccepted = false;
-let extensionPollTimer = null;
+// Sotto Setup assistant (onboarding window).
+// Steps: welcome → license → key → models → permissions → extension → done.
 
-// Theme
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+const STEPS = $$(".page").map((el) => ({ id: el.dataset.step, title: el.dataset.title, el }));
+const isMac = navigator.userAgent.includes("Mac");
+
+let index = 0;
+let furthest = 0;
+let licenseAccepted = false;
+let busy = false;
+let permTimer = null;
+let extTimer = null;
+let permState = {};
+let extConnected = false;
+
+// ── Platform + theme ─────────────────────────────────────────────────────────
+if (isMac) document.documentElement.classList.add("platform-mac");
+
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme || "dark";
 }
 window.api.getTheme().then(applyTheme).catch(() => applyTheme("dark"));
 window.api.onThemeChange(applyTheme);
 
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+// ── Sidebar step list ────────────────────────────────────────────────────────
+const stepList = $("#step-list");
+STEPS.forEach((step, i) => {
+  const li = document.createElement("li");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "step-item";
+  btn.innerHTML = `<span class="bullet"></span><span class="label"></span>`;
+  btn.querySelector(".label").textContent = step.title;
+  btn.addEventListener("click", () => goTo(i));
+  li.appendChild(btn);
+  stepList.appendChild(li);
+  step.navBtn = btn;
+});
 
-// ── Step dots ────────────────────────────────────────────────────────────────
-function renderDots() {
-  const host = $("#step-dots");
-  host.innerHTML = "";
-  for (let i = 1; i <= TOTAL_STEPS; i++) {
-    const d = document.createElement("div");
-    d.className =
-      "dot" + (i === current ? " active" : i < current ? " complete" : "");
-    host.appendChild(d);
+function renderSidebar() {
+  STEPS.forEach((step, i) => {
+    const b = step.navBtn;
+    b.classList.toggle("current", i === index);
+    b.classList.toggle("complete", i !== index && i < furthest);
+    b.disabled = i > furthest;
+    if (i === index) b.setAttribute("aria-current", "step");
+    else b.removeAttribute("aria-current");
+  });
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+const btnBack = $("#btn-back");
+const btnNext = $("#btn-next");
+const note = $("#bottom-note");
+
+function current() {
+  return STEPS[index].id;
+}
+
+function goTo(i, { focus = true } = {}) {
+  if (i < 0 || i >= STEPS.length || i > furthest) return;
+  index = i;
+  STEPS.forEach((s, j) => (s.el.hidden = j !== index));
+  renderSidebar();
+  onEnter();
+  updateFooter();
+  if (focus) focusPage();
+}
+
+function focusPage() {
+  const id = current();
+  if (id === "key") {
+    keyField.focus();
+    return;
   }
+  const heading = $("h1, h2", STEPS[index].el);
+  heading?.focus({ preventScroll: true });
 }
 
-function showStep(n) {
-  current = Math.max(1, Math.min(TOTAL_STEPS, n));
-  $$(".step").forEach((el) => {
-    el.hidden = Number(el.dataset.step) !== current;
-  });
-  $("#btn-back").style.visibility = current === 1 ? "hidden" : "visible";
-  $("#btn-skip").style.visibility =
-    current === 1 || current === TOTAL_STEPS ? "hidden" : "visible";
-  $("#btn-next").textContent = current === TOTAL_STEPS ? "Done" : "Continue";
-  updateNextEnabled();
-  renderDots();
-  onStepEnter();
+function onEnter() {
+  const id = current();
+  stopPolling();
+  if (id === "permissions") {
+    refreshPermissions();
+    permTimer = setInterval(refreshPermissions, 1500);
+  }
+  if (id === "extension") {
+    hydrateExtension();
+    pollExtension();
+    extTimer = setInterval(pollExtension, 2000);
+  }
+  if (id === "models") loadModels();
+  if (id === "done") renderSummary();
 }
 
-function onStepEnter() {
-  if (current === 4) startExtensionPolling();
-  else stopExtensionPolling();
-  if (current === 3) refreshPermissions();
+function stopPolling() {
+  clearInterval(permTimer);
+  clearInterval(extTimer);
+  permTimer = extTimer = null;
 }
 
-// ── Step 1: license ──────────────────────────────────────────────────────────
-$("#license-accept").addEventListener("change", (e) => {
-  licenseAccepted = e.target.checked;
-  updateNextEnabled();
+function updateFooter() {
+  const id = current();
+  btnBack.hidden = index === 0;
+  btnNext.textContent =
+    id === "welcome" ? "Get Started" : id === "done" ? "Start Using Sotto" : "Continue";
+
+  let blocked = false;
+  let text = "";
+  if (id === "license") {
+    blocked = !licenseAccepted;
+    if (blocked) text = "Agree to the license to continue.";
+  } else if (id === "key") {
+    // Continue stays clickable while a check is pending: next() waits for it.
+    const s = keyField.state;
+    const pending = keyField.hasValue && (s === "typing" || s === "checking");
+    blocked = !(s === "valid" || s === "saved" || pending);
+    if (s === "empty") text = "An OpenRouter key is required.";
+    if (s === "invalid") text = "Enter a working OpenRouter key to continue.";
+    if (s === "network") text = "Check your connection, then try again.";
+  } else if (id === "models") {
+    blocked = !choice.model;
+    if (models.error) text = "Models couldn't be loaded.";
+    else if (!choice.model) text = "Choose a model to continue.";
+    else if (!choice.transcriptionModel) text = "Without a transcription model, voice stays off.";
+  } else if (id === "permissions") {
+    const missing = ["screen", "mic", "accessibility"].filter((k) => permState[k] !== "granted");
+    if (missing.length) text = "You can continue now and allow access later.";
+  } else if (id === "extension") {
+    if (!extConnected) text = "You can finish now and add the extension later.";
+  }
+  btnNext.disabled = blocked || busy;
+  note.textContent = text;
+}
+
+async function next() {
+  if (busy || btnNext.disabled) return;
+  const id = current();
+
+  if (id === "key") {
+    busy = true;
+    btnNext.disabled = true;
+    try {
+      const state = await keyField.validate();
+      if (state === "valid") {
+        await keyField.save();
+      } else if (state !== "saved") {
+        shake($("#key-field"));
+        keyField.focus();
+        return;
+      }
+    } finally {
+      busy = false;
+      updateFooter();
+    }
+  }
+
+  if (id === "models") {
+    busy = true;
+    try {
+      await saveModels();
+    } finally {
+      busy = false;
+      updateFooter();
+    }
+  }
+
+  if (id === "done") {
+    stopPolling();
+    window.api.finish();
+    return;
+  }
+
+  furthest = Math.max(furthest, index + 1);
+  goTo(index + 1);
+}
+
+function back() {
+  if (index > 0) goTo(index - 1);
+}
+
+function shake(el) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  el.classList.remove("shake");
+  void el.offsetWidth;
+  el.classList.add("shake");
+}
+
+btnNext.addEventListener("click", next);
+btnBack.addEventListener("click", back);
+
+// Return = default button (Continue); ⌘[ = Go Back.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.isComposing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const t = e.target;
+    const tag = t?.tagName;
+    // Buttons, links and checkboxes handle Return themselves.
+    if (tag === "BUTTON" || tag === "A" || (tag === "INPUT" && t.type === "checkbox")) return;
+    e.preventDefault();
+    next();
+  } else if (e.metaKey && e.key === "[") {
+    e.preventDefault();
+    back();
+  }
 });
-$("#open-license").addEventListener("click", () => window.api.openLicense());
 
-// ── Step 2: API keys ─────────────────────────────────────────────────────────
-$$(".reveal").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const input = $("#" + btn.dataset.target);
-    input.type = input.type === "password" ? "text" : "password";
-  });
-});
+// External links
 $$("[data-href]").forEach((btn) => {
   btn.addEventListener("click", () => window.api.openExternal(btn.dataset.href));
 });
 
-async function hydrateKeys() {
-  const info = await window.api.getSecretInfo();
-  if (info?.anthropic) {
-    $("#key-anthropic").placeholder = "•••• saved";
-    setChip("#key-anthropic-status", "ok", "saved");
+// ── License ─────────────────────────────────────────────────────────────────
+$("#license-accept").addEventListener("change", (e) => {
+  licenseAccepted = e.target.checked;
+  updateFooter();
+});
+$("#open-license").addEventListener("click", () => window.api.openLicense());
+
+// ── OpenRouter key ──────────────────────────────────────────────────────────
+const keyField = window.KeyField.mount($("#key-field"), {
+  api: window.api,
+  service: "openrouter",
+  inputId: "key-openrouter",
+  onState: () => updateFooter(),
+});
+keyField.refreshSaved();
+
+
+// ── Models ──────────────────────────────────────────────────────────────────
+// Choices come from OpenRouter's model list; nothing is hard-coded. Values set
+// in .env are shown read-only.
+const M = window.SottoModels;
+const models = { loaded: false, loading: false, error: null, chat: [], audio: [] };
+const choice = { model: null, effort: null, maxTokens: null, transcriptionModel: null };
+let aiConfig = null;
+
+const chatPicker = M.mountPicker($("#chat-picker"), {
+  label: "Answer model",
+  onSelect: (m) => {
+    const prev = chatPicker.find(choice.model);
+    choice.model = m?.id ?? null;
+    choice.maxTokens = M.autoMaxTokens(prev, m, choice.maxTokens);
+    if (!aiConfig?.overriddenByEnv?.effort) choice.effort = M.chooseEffort(m, choice.effort);
+    renderEffortRow();
+    updateFooter();
+  },
+});
+const audioPicker = M.mountPicker($("#audio-picker"), {
+  label: "Transcription model",
+  noneLabel: "None (voice off)",
+  onSelect: (m) => {
+    choice.transcriptionModel = m?.id ?? null;
+    updateFooter();
+  },
+});
+
+function renderEffortRow() {
+  const row = $("#effort-row");
+  const lockedChip = $("#effort-locked");
+  if (aiConfig?.overriddenByEnv?.effort) {
+    row.hidden = false;
+    $("#effort-seg").hidden = true;
+    lockedChip.hidden = false;
+    lockedChip.textContent = `${M.effortLabel(aiConfig.effort)} · Set by .env`;
+    return;
   }
-  if (info?.openai) {
-    $("#key-openai").placeholder = "•••• saved";
-    setChip("#key-openai-status", "ok", "saved");
-  }
+  $("#effort-seg").hidden = false;
+  lockedChip.hidden = true;
+  M.renderEffort($("#effort-seg"), row, chatPicker.find(choice.model), choice.effort, (v) => {
+    choice.effort = v;
+  });
 }
 
-function setChip(sel, kind, text) {
-  const el = $(sel);
-  el.className = "chip " + kind;
-  el.textContent = text;
+async function loadModels({ force = false } = {}) {
+  if (models.loading || (models.loaded && !force)) return;
+  models.loading = true;
+  models.error = null;
+  chatPicker.setLoading();
+  audioPicker.setLoading();
+  updateFooter();
+
+  let list;
+  try {
+    [list, aiConfig] = await Promise.all([window.api.listModels(), window.api.getAiConfig()]);
+  } catch (e) {
+    list = { ok: false, error: e?.message };
+  }
+  models.loading = false;
+
+  const env = aiConfig?.overriddenByEnv || {};
+  Object.assign(choice, {
+    model: aiConfig?.model ?? null,
+    effort: aiConfig?.effort ?? null,
+    maxTokens: aiConfig?.maxTokens ?? null,
+    transcriptionModel: aiConfig?.transcriptionModel ?? null,
+  });
+
+  if (!list?.ok) {
+    models.error = list?.error || "Couldn't load models from OpenRouter.";
+    const retry = () => loadModels({ force: true });
+    if (env.model) chatPicker.setLocked(choice.model);
+    else chatPicker.setError(models.error, retry);
+    if (env.transcriptionModel) audioPicker.setLocked(choice.transcriptionModel);
+    else audioPicker.setError(models.error, retry);
+    // A model fixed by .env still lets setup continue.
+    if (env.model) models.error = null;
+    updateFooter();
+    return;
+  }
+
+  models.loaded = true;
+  models.chat = list.chat || [];
+  models.audio = list.audio || [];
+  chatPicker.setItems(models.chat);
+  audioPicker.setItems(models.audio);
+
+  // Chat model: saved / .env value, else the newest Sonnet (computed).
+  if (env.model) {
+    chatPicker.setLocked(choice.model);
+  } else {
+    const savedChat = choice.model && chatPicker.find(choice.model);
+    const pick = savedChat || M.defaultChat(models.chat);
+    chatPicker.select(pick?.id ?? null, { silent: true });
+    const prevMax = choice.maxTokens;
+    choice.model = pick?.id ?? null;
+    if (!savedChat) choice.maxTokens = M.autoMaxTokens(null, pick, prevMax);
+  }
+  if (!env.effort) choice.effort = M.chooseEffort(chatPicker.find(choice.model), choice.effort);
+  renderEffortRow();
+
+  // Transcription: saved / .env value, else the newest "flash" model.
+  if (env.transcriptionModel) {
+    audioPicker.setLocked(choice.transcriptionModel);
+  } else {
+    const savedAudio = choice.transcriptionModel && audioPicker.find(choice.transcriptionModel);
+    const pick = savedAudio || M.defaultAudio(models.audio);
+    audioPicker.select(pick?.id ?? null, { silent: true });
+    choice.transcriptionModel = pick?.id ?? null;
+  }
+  updateFooter();
 }
 
-async function saveStep2() {
-  const anth = $("#key-anthropic").value.trim();
-  const oai = $("#key-openai").value.trim();
-  const errors = [];
-  if (anth) {
-    setChip("#key-anthropic-status", "accent", "checking…");
-    const r = await window.api.testSecret("anthropic", anth);
-    if (r?.ok) {
-      await window.api.saveSecret("anthropic", anth);
-      setChip("#key-anthropic-status", "ok", "valid");
-    } else {
-      setChip("#key-anthropic-status", "danger", r?.error || "invalid");
-      errors.push("anthropic");
-    }
+async function saveModels() {
+  const env = aiConfig?.overriddenByEnv || {};
+  const patch = {};
+  for (const key of ["model", "effort", "maxTokens", "transcriptionModel"]) {
+    if (!env[key]) patch[key] = choice[key] ?? null;
   }
-  if (oai) {
-    setChip("#key-openai-status", "accent", "checking…");
-    const r = await window.api.testSecret("openai", oai);
-    if (r?.ok) {
-      await window.api.saveSecret("openai", oai);
-      setChip("#key-openai-status", "ok", "valid");
-    } else {
-      setChip("#key-openai-status", "danger", r?.error || "invalid");
-      errors.push("openai");
-    }
-  }
-  return errors.length === 0;
+  await window.api.saveSettings({ ai: patch });
 }
 
-// ── Step 3: permissions ──────────────────────────────────────────────────────
+// Prefetch: the list is public, so it can load while the user reads.
+loadModels();
+
+// ── Permissions ─────────────────────────────────────────────────────────────
+const PERM_COPY = {
+  granted: { chip: "Allowed", cls: "ok" },
+  denied: { chip: "Not Allowed", cls: "danger" },
+  restricted: { chip: "Restricted", cls: "danger" },
+  "not-determined": { chip: "Not Set", cls: "warn" },
+  unknown: { chip: "Unknown", cls: "" },
+};
+
 async function refreshPermissions() {
   try {
     const p = await window.api.checkPermissions();
-    setPerm("screen", p?.screen);
-    setPerm("mic", p?.microphone);
-    setPerm("accessibility", p?.accessibility);
+    permState = { screen: p?.screen, mic: p?.microphone, accessibility: p?.accessibility };
+    for (const [name, status] of Object.entries(permState)) setPerm(name, status);
   } catch {
-    /* ignore */
+    /* ignore; next poll retries */
   }
-  // Dev-mode banner: visible only when running unpackaged (Electron from CLI),
-  // because permissions get attributed to the parent terminal app rather than
-  // to "Sotto" itself.
-  try {
-    const info = await window.api.getAppInfo();
-    const banner = $("#dev-mode-banner");
-    if (banner) banner.hidden = !!info?.isPackaged;
-  } catch {
-    /* ignore */
-  }
+  updateFooter();
 }
 
 function setPerm(name, status) {
-  const el = $(`.perm-item[data-perm="${name}"]`);
-  if (!el) return;
-  el.classList.remove("granted", "denied");
-  const btn = el.querySelector(".perm-request");
+  const row = $(`.perm[data-perm="${name}"]`);
+  if (!row) return;
+  const copy = PERM_COPY[status] || PERM_COPY.unknown;
+  const chip = $(".perm-chip", row);
+  chip.className = `chip perm-chip ${copy.cls}`;
+  chip.textContent = copy.chip;
+
+  const action = $(".perm-action", row);
   if (status === "granted") {
-    el.classList.add("granted");
-    if (btn) btn.textContent = "✓ Granted";
+    action.hidden = true;
   } else {
-    if (status === "denied") el.classList.add("denied");
-    if (btn) btn.textContent = "Request";
+    action.hidden = false;
+    // Once macOS has recorded a "no", it won't prompt again; send the user to
+    // System Settings. Accessibility never prompts after the first time either.
+    const prompted = status === "denied" || status === "restricted";
+    action.textContent = prompted ? "Open Settings…" : "Allow…";
+    action.dataset.mode = prompted ? "settings" : "request";
   }
 }
 
-$$(".perm-request").forEach((btn) => {
+$$(".perm-action").forEach((btn) => {
   btn.addEventListener("click", async () => {
-    const item = btn.closest(".perm-item");
-    const kind = item?.dataset.kind;
-    if (!kind || item.classList.contains("granted")) return;
-
-    item.classList.add("checking");
-    btn.textContent = "Requesting…";
+    const row = btn.closest(".perm");
+    if (btn.dataset.mode === "settings") {
+      window.api.openSystemSettings(row.dataset.pane);
+      return;
+    }
+    btn.disabled = true;
     try {
-      const res = await window.api.requestPermission(kind);
-      if (res?.requiresRestart) {
-        $("#perm-restart-banner").hidden = false;
-      }
-    } catch (e) {
-      console.error(e);
+      const res = await window.api.requestPermission(row.dataset.kind);
+      if (res?.requiresRestart) $("#perm-restart-banner").hidden = false;
+    } catch {
+      /* ignore */
     } finally {
-      item.classList.remove("checking");
-      await refreshPermissions();
+      btn.disabled = false;
+      refreshPermissions();
     }
   });
 });
+$("#perm-restart").addEventListener("click", () => window.api.restartApp());
 
-$("#perm-restart")?.addEventListener("click", () => window.api.restartApp());
+window.api
+  .getAppInfo()
+  .then((info) => {
+    $("#dev-mode-banner").hidden = !!info?.isPackaged || !isMac;
+  })
+  .catch(() => {});
+if (!isMac) {
+  $("#perm-sub").textContent = "Windows doesn't need extra permissions for Sotto.";
+}
 
-// ── Step 4: extension ────────────────────────────────────────────────────────
-async function hydrateExtensionStep() {
-  const info = await window.api.getExtensionInfo();
-  if (info?.path) $("#ext-path").textContent = info.path;
+// ── Chrome extension ────────────────────────────────────────────────────────
+async function hydrateExtension() {
+  try {
+    const info = await window.api.getExtensionInfo();
+    if (info?.path) {
+      $("#ext-path").textContent = info.path;
+      $("#ext-path").title = info.path;
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 async function pollExtension() {
-  const connected = await window.api.isExtensionConnected();
+  try {
+    extConnected = !!(await window.api.isExtensionConnected());
+  } catch {
+    extConnected = false;
+  }
   const chip = $("#ext-chip");
   const detail = $("#ext-detail");
-  if (connected) {
+  if (extConnected) {
     chip.className = "chip ok";
-    chip.textContent = "✓ connected";
+    chip.textContent = "Connected";
     detail.textContent = "The extension is talking to Sotto.";
   } else {
-    chip.className = "chip warn";
-    chip.textContent = "not detected";
-    detail.textContent =
-      "Polling for heartbeat every 2s. Reload your Chrome tab after installing.";
+    chip.className = "chip";
+    chip.innerHTML = `<span class="spinner"></span>Waiting`;
+    detail.textContent = "Waiting for the extension to connect…";
   }
+  updateFooter();
 }
 
-function startExtensionPolling() {
-  hydrateExtensionStep();
-  pollExtension();
-  if (extensionPollTimer) clearInterval(extensionPollTimer);
-  extensionPollTimer = setInterval(pollExtension, 2000);
-}
-
-function stopExtensionPolling() {
-  if (extensionPollTimer) {
-    clearInterval(extensionPollTimer);
-    extensionPollTimer = null;
-  }
-}
-
-$("#ext-copy").addEventListener("click", () => {
-  window.api.copyToClipboard($("#ext-path").textContent);
-  $("#ext-copy").textContent = "Copied";
-  setTimeout(() => ($("#ext-copy").textContent = "Copy"), 1200);
-});
-$("#ext-open-page").addEventListener("click", () => window.api.openExtensionPage());
-$("#ext-open-page-2")?.addEventListener("click", () => window.api.openExtensionPage());
-$("#ext-open-folder").addEventListener("click", () => window.api.openExtensionFolder());
-
-// Sub-tabs: First-time install / Already installed?
-$$(".ext-tab").forEach((btn) => {
+$$(".ext-seg .seg-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    $$(".ext-tab").forEach((b) => b.classList.toggle("active", b === btn));
-    $$(".ext-tab-pane").forEach(
-      (p) => (p.hidden = p.dataset.pane !== btn.dataset.tab),
-    );
+    $$(".ext-seg .seg-btn").forEach((b) => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", String(on));
+    });
+    $$(".ext-pane").forEach((p) => (p.hidden = p.dataset.pane !== btn.dataset.tab));
   });
 });
 
-// ── Footer navigation ───────────────────────────────────────────────────────
-$("#btn-back").addEventListener("click", () => showStep(current - 1));
-$("#btn-skip").addEventListener("click", () => showStep(current + 1));
-$("#btn-next").addEventListener("click", async () => {
-  if (current === 2) {
-    const ok = await saveStep2();
-    if (!ok) return; // user must fix or clear the invalid key
-  }
-  if (current === TOTAL_STEPS) {
-    window.api.finish();
-    return;
-  }
-  showStep(current + 1);
+$("#ext-copy").addEventListener("click", () => {
+  window.api.copyToClipboard($("#ext-path").textContent);
+  const b = $("#ext-copy");
+  b.textContent = "Copied";
+  setTimeout(() => (b.textContent = "Copy"), 1200);
 });
+$("#ext-open-page").addEventListener("click", () => window.api.openExtensionPage());
+$("#ext-open-folder").addEventListener("click", () => window.api.openExtensionFolder());
+if (!isMac) $("#ext-open-folder").textContent = "Show in Explorer";
 
-function updateNextEnabled() {
-  const btn = $("#btn-next");
-  if (current === 1) {
-    btn.disabled = !licenseAccepted;
-  } else {
-    btn.disabled = false;
+// ── Done summary ────────────────────────────────────────────────────────────
+async function renderSummary() {
+  const set = (key, cls, text) => {
+    const chip = $(`[data-sum="${key}"] .chip`);
+    chip.className = `chip ${cls}`;
+    chip.textContent = text;
+  };
+
+  const saved = await keyField.refreshSaved();
+  set("key", saved ? "ok" : "danger", saved ? "Connected" : "Not set");
+
+  const chosen = chatPicker.find(choice.model);
+  set("model", choice.model ? "ok" : "danger", choice.model ? chosen?.name || choice.model : "Not chosen");
+
+  try {
+    const p = await window.api.checkPermissions();
+    const granted = [p?.screen, p?.microphone, p?.accessibility].filter((s) => s === "granted").length;
+    set("perms", granted === 3 ? "ok" : "warn", granted === 3 ? "All allowed" : `${granted} of 3 allowed`);
+  } catch {
+    set("perms", "", "Unknown");
+  }
+
+  try {
+    const ok = await window.api.isExtensionConnected();
+    set("ext", ok ? "ok" : "warn", ok ? "Connected" : "Not detected");
+  } catch {
+    set("ext", "", "Unknown");
   }
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
-hydrateKeys();
-showStep(1);
+// ── Init ────────────────────────────────────────────────────────────────────
+goTo(0, { focus: false });

@@ -51,4 +51,4 @@ Out of scope:
 - The limits of screen-share invisibility listed in the README (capture cards,
   cameras, OS changes). These are known and documented.
 - Attacks that need an attacker who already runs code as your user account.
-- Issues in Anthropic's or OpenAI's services. Report those to them.
+- Issues in OpenRouter's services or the model providers behind it. Report those to them.

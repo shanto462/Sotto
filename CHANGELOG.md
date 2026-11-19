@@ -6,6 +6,39 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Sotto now calls Claude through OpenRouter instead of the Anthropic API, and
+  transcribes voice through OpenRouter too instead of OpenAI Whisper. One
+  OpenRouter key replaces the Anthropic and OpenAI keys; the old keys are
+  removed from the keychain on first launch.
+- No model is hard-coded. The chat model, effort, output limit, and
+  transcription model are chosen in setup or Preferences from OpenRouter's
+  live model list, and `.env` (`OPENROUTER_MODEL`, `SOTTO_EFFORT`,
+  `MAX_TOKENS`, `TRANSCRIPTION_MODEL`) overrides them.
+- Refusals and errors that OpenRouter returns with HTTP 200 now show in the
+  overlay instead of an empty answer.
+- Voice recordings are converted to 16 kHz mono WAV before upload.
+- The microphone is opened without echo cancellation, noise suppression, or
+  auto gain, so recording no longer ducks or alters other apps' audio (calls,
+  music), and it is released as soon as recording stops.
+- Local macOS builds are signed with a stable self-signed identity
+  (`npm run cert:mac`, once), so Screen Recording, Microphone, and
+  Accessibility grants survive rebuilds.
+
+### Fixed
+
+- The "Max recording length" setting is now enforced.
+- After a failed voice request, the voice shortcut works again without
+  needing a successful answer first.
+
+### Removed
+
+- The `@anthropic-ai/sdk` and `openai` dependencies. Both API calls use
+  `fetch` against OpenRouter.
+- The unused `silenceThresholdRms` setting and the outdated
+  `plans/next-features.md` design doc.
+
 ### Security
 
 - The local HTTP server now only accepts the Sotto extension (ID pinned by a
